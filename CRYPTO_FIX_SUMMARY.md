@@ -2,13 +2,21 @@
 
 ## Problem Analysis
 
+### Initial Issue
 The Augment VSCode extension was failing to activate with the error:
 ```
 ReferenceError: crypto is not defined
 at /root/.local/share/code-server/extensions/augment.vscode-augment-0.532.1/out/extension.js:464:2279
 ```
 
-This error occurs because the Node.js `crypto` module is not available in the code-server extension host environment, which is common in web-based VSCode environments.
+### Secondary Issue (Fixed)
+After implementing the initial crypto polyfill, a new error occurred:
+```
+ReferenceError: require is not defined in ES module scope, you can use import instead
+at file:///root/.local/share/code-server/wrappers/extension-host-wrapper.mjs:5:12
+```
+
+Both issues have been resolved. The crypto module is not available in the code-server extension host environment, which is common in web-based VSCode environments.
 
 ## Solution Implemented
 
@@ -22,26 +30,21 @@ This error occurs because the Node.js `crypto` module is not available in the co
   - Global module injection for all contexts (global, self, window)
   - CommonJS and AMD module support
 
-### 2. Extension Host Wrapper
-- **Location**: `~/.local/share/code-server/wrappers/extension-host-wrapper.mjs`
-- **Purpose**: Ensures crypto polyfill loads before any extensions
+### 2. Node.js Environment Configuration (Updated)
+- **Purpose**: Configures Node.js environment for crypto compatibility
+- **Method**: Uses `--require` flag to preload crypto polyfill
 - **Features**:
-  - Early crypto module injection
-  - Extension host environment preparation
-  - Error handling and verification
+  - Removed problematic `--loader` option that caused ES module errors
+  - Simplified approach using proven `--require` method
+  - Enhanced NODE_OPTIONS for extension compatibility
 
-### 3. Node.js Environment Configuration
-- **NODE_OPTIONS**: Configured to preload crypto polyfill
-- **NODE_PATH**: Extended to include all necessary module paths
-- **Extension Host Variables**: Optimized for crypto module availability
-
-### 4. Direct Extension Patching
+### 3. Direct Extension Patching
 - **Backup System**: Creates `.backup` files before modification
 - **Injection Method**: Adds crypto polyfill directly to extension.js files
 - **Target Extensions**: Augment, Claude, AI-related extensions
 - **Safety**: Checks for existing patches to avoid duplication
 
-### 5. Code-Server Configuration
+### 4. Code-Server Configuration
 - **Config File**: `~/.config/code-server/config.yaml`
 - **Features**: Optimized for extension compatibility
 - **Environment**: Configured for crypto module support

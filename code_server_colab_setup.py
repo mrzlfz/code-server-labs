@@ -1026,18 +1026,15 @@ class CodeServerSetup:
         # Create crypto polyfill for web worker environments
         polyfill_file = self._create_crypto_polyfill()
 
-        # Create a wrapper script that ensures crypto is available before any extension loads
-        wrapper_script = self._create_extension_host_wrapper(polyfill_file)
-
         # Node.js options for extension host compatibility
+        # Removed problematic --loader option that was causing ES module errors
         node_options = [
             "--experimental-modules",
             "--experimental-json-modules",
             "--enable-source-maps",
             "--max-old-space-size=4096",
             "--unhandled-rejections=warn",
-            f"--require={polyfill_file}",  # Inject crypto polyfill first
-            f"--loader={wrapper_script}"   # Use wrapper for module loading
+            f"--require={polyfill_file}"  # Inject crypto polyfill (this works correctly)
         ]
 
         # Set NODE_OPTIONS for extension host
@@ -1073,57 +1070,10 @@ class CodeServerSetup:
         env['FORCE_CRYPTO_POLYFILL'] = "1"
 
         print(f"🔧 Crypto polyfill created: {polyfill_file}")
-        print(f"🔧 Extension host wrapper: {wrapper_script}")
 
         return env
 
-    def _create_extension_host_wrapper(self, polyfill_file):
-        """Create a wrapper script for the extension host to ensure crypto is available."""
-        wrapper_dir = Path.home() / ".local" / "share" / "code-server" / "wrappers"
-        wrapper_dir.mkdir(parents=True, exist_ok=True)
 
-        wrapper_content = f'''
-// Extension Host Wrapper - Ensures crypto module is available
-// This wrapper loads before any extensions and ensures crypto polyfill is active
-
-const fs = require('fs');
-const path = require('path');
-
-// Load crypto polyfill immediately
-try {{
-    require('{polyfill_file}');
-    console.log('[Extension Host Wrapper] Crypto polyfill loaded successfully');
-}} catch (error) {{
-    console.error('[Extension Host Wrapper] Failed to load crypto polyfill:', error);
-}}
-
-// Verify crypto is available
-try {{
-    const crypto = require('crypto');
-    if (crypto && typeof crypto.randomBytes === 'function') {{
-        console.log('[Extension Host Wrapper] Crypto module is now available');
-    }} else {{
-        console.warn('[Extension Host Wrapper] Crypto module loaded but missing methods');
-    }}
-}} catch (error) {{
-    console.error('[Extension Host Wrapper] Crypto module still not available:', error);
-}}
-
-// Export empty loader (just for initialization)
-export async function resolve(specifier, context, defaultResolve) {{
-    return defaultResolve(specifier, context);
-}}
-
-export async function load(url, context, defaultLoad) {{
-    return defaultLoad(url, context);
-}}
-'''
-
-        wrapper_file = wrapper_dir / "extension-host-wrapper.mjs"
-        with open(wrapper_file, 'w') as f:
-            f.write(wrapper_content)
-
-        return wrapper_file
 
     def _create_code_server_config(self):
         """Create code-server configuration file with crypto polyfill support."""
@@ -1280,14 +1230,11 @@ try {{
         # Create enhanced code-server config
         config_file = self._create_code_server_config()
 
-        # Create extension host wrapper
-        wrapper_script = self._create_extension_host_wrapper(polyfill_file)
-
         print(f"\n📊 Fix Results:")
         print(f"   • Crypto polyfill created: {polyfill_file}")
-        print(f"   • Extension host wrapper: {wrapper_script}")
         print(f"   • Extensions patched: {injected_count}")
         print(f"   • Config file updated: {config_file}")
+        print(f"   • Node.js environment: Configured for crypto compatibility")
 
         if injected_count > 0:
             print("\n✅ Crypto module fixes applied successfully!")
@@ -1442,7 +1389,7 @@ try {{
             print("🚀 Starting Code Server with Enhanced Configuration...")
             print("🏢 Primary Registry: Microsoft Marketplace (UI search/discovery)")
             print("🌐 Fallback Registry: Open VSX (automatic fallback)")
-            print("🔧 Crypto Polyfill: Enabled for web worker extensions")
+            print("🔧 Crypto Polyfill: Enabled for extension compatibility")
             print(f"💉 Extensions Patched: {injected_count} extension(s)")
 
             # Prepare environment with Microsoft Marketplace as primary
