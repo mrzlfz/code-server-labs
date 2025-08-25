@@ -1777,11 +1777,16 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         """Debug extension registry configuration."""
         print("\n🔍 Debug Extension Registry Configuration")
 
+        # Disable terminal control characters that might cause issues
+        import sys
+        sys.stdout.flush()
+        sys.stderr.flush()
+
         # Check current environment variable
         print("📋 Environment Variable Check:")
         extensions_gallery = os.environ.get('EXTENSIONS_GALLERY')
         if extensions_gallery:
-            print(f"✅ EXTENSIONS_GALLERY is set:")
+            print("✅ EXTENSIONS_GALLERY is set:")
             print(f"   {extensions_gallery}")
 
             try:
@@ -1838,16 +1843,28 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             # Try to get process environment
             try:
                 import psutil
+                code_server_proc = None
                 for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                     if proc.info['name'] == 'code-server' or (
                         proc.info['cmdline'] and 'code-server' in ' '.join(proc.info['cmdline'])
                     ):
+                        code_server_proc = proc
                         print(f"🆔 Process ID: {proc.info['pid']}")
                         try:
                             env = proc.environ()
                             if 'EXTENSIONS_GALLERY' in env:
+                                proc_gallery = env['EXTENSIONS_GALLERY']
                                 print("✅ Code Server process has EXTENSIONS_GALLERY:")
-                                print(f"   {env['EXTENSIONS_GALLERY']}")
+                                print(f"   {proc_gallery}")
+
+                                # Check if it matches current environment
+                                if proc_gallery != extensions_gallery:
+                                    print("❌ MISMATCH DETECTED!")
+                                    print("   Code Server process is using OLD environment variable")
+                                    print("   Current environment has been updated but process hasn't")
+                                    print("💡 SOLUTION: Code Server needs restart to pick up new environment")
+                                else:
+                                    print("✅ Environment variables match - configuration is correct")
                             else:
                                 print("❌ Code Server process does NOT have EXTENSIONS_GALLERY")
                                 print("💡 This is why Microsoft Marketplace is not working!")
@@ -1856,6 +1873,19 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                         break
                 else:
                     print("❌ Code Server process not found")
+
+                # If we found a mismatch, offer immediate fix
+                if (code_server_proc and extensions_gallery and
+                    'EXTENSIONS_GALLERY' in code_server_proc.environ() and
+                    code_server_proc.environ()['EXTENSIONS_GALLERY'] != extensions_gallery):
+
+                    print("\n🚨 IMMEDIATE FIX AVAILABLE!")
+                    fix_now = input("🔄 Restart Code Server now to fix registry? (y/N): ").strip().lower()
+                    if fix_now == 'y':
+                        print("🔄 Restarting Code Server with correct environment...")
+                        self._force_restart_with_env()
+                        return
+
             except ImportError:
                 print("⚠️  psutil not available - cannot check process environment")
         else:
@@ -1884,26 +1914,132 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         """Force restart Code Server with current environment variables."""
         print("\n🔄 Force Restart with Environment Variables")
 
+        # Get current EXTENSIONS_GALLERY before restart
+        extensions_gallery = os.environ.get('EXTENSIONS_GALLERY')
+        if not extensions_gallery:
+            print("❌ No EXTENSIONS_GALLERY environment variable found!")
+            print("💡 Please configure registry first (option 2 for Microsoft Marketplace)")
+            return
+
+        print(f"🏪 Target registry: {self._get_current_registry()}")
+        print(f"📋 Environment variable: {extensions_gallery[:100]}...")
+
         if self._is_code_server_running():
             print("⏹️  Stopping Code Server...")
             self.stop_code_server()
 
-            # Wait a moment
+            # Wait for complete shutdown
             import time
-            time.sleep(2)
+            print("⏳ Waiting for complete shutdown...")
+            time.sleep(3)
+
+            # Verify it's actually stopped
+            if self._is_code_server_running():
+                print("⚠️  Code Server still running, forcing kill...")
+                self._force_kill_code_server()
+                time.sleep(2)
 
         print("▶️  Starting Code Server with current environment...")
 
-        # Get current EXTENSIONS_GALLERY
-        extensions_gallery = os.environ.get('EXTENSIONS_GALLERY')
-        if extensions_gallery:
-            print(f"🏪 Using registry: {self._get_current_registry()}")
+        # Explicitly set environment variable for the new process
+        import subprocess
+        import os
 
-        # Start Code Server
-        self.start_code_server()
+        # Get Code Server configuration
+        port = self.config.get("code_server.port", 8080)
+        password = self.config.get("code_server.password", "colab123")
 
-        print("✅ Code Server restarted with current environment variables!")
-        print("🔍 Check Extensions tab to verify Microsoft Marketplace is active")
+        # Prepare environment with EXTENSIONS_GALLERY
+        env = os.environ.copy()
+        env['EXTENSIONS_GALLERY'] = extensions_gallery
+
+        # Start Code Server with explicit environment
+        try:
+            cmd = [
+                str(BIN_DIR / "code-server"),
+                "--bind-addr", f"0.0.0.0:{port}",
+                "--auth", "password",
+                "--password", password,
+                "--disable-telemetry",
+                "/content"
+            ]
+
+            print(f"🚀 Starting Code Server with command: {' '.join(cmd[:3])}...")
+
+            # Start in background
+            process = subprocess.Popen(
+                cmd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd="/content"
+            )
+
+            # Store process info
+            self.code_server_process = process
+
+            # Wait a moment for startup
+            import time
+            time.sleep(5)
+
+            # Verify it started successfully
+            if self._is_code_server_running():
+                print("✅ Code Server restarted successfully!")
+
+                # Verify environment variable is loaded
+                print("🔍 Verifying environment variable...")
+                try:
+                    import psutil
+                    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                        if proc.info['name'] == 'code-server' or (
+                            proc.info['cmdline'] and 'code-server' in ' '.join(proc.info['cmdline'])
+                        ):
+                            try:
+                                proc_env = proc.environ()
+                                if 'EXTENSIONS_GALLERY' in proc_env:
+                                    if 'marketplace.visualstudio.com' in proc_env['EXTENSIONS_GALLERY']:
+                                        print("✅ Microsoft Marketplace is active in Code Server process!")
+                                    else:
+                                        print("⚠️  Different registry detected in process")
+                                else:
+                                    print("❌ EXTENSIONS_GALLERY not found in process environment")
+                                break
+                            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                                print("⚠️  Cannot verify process environment")
+                                break
+                except ImportError:
+                    print("⚠️  Cannot verify process environment (psutil not available)")
+
+                print("\n🎯 Next Steps:")
+                print("1. 🌐 Open Code Server in browser")
+                print("2. 🔍 Go to Extensions tab (Ctrl+Shift+X)")
+                print("3. 🔎 Search for 'augment.vscode-augment'")
+                print("4. ✅ Extension should now appear from Microsoft Marketplace!")
+
+            else:
+                print("❌ Failed to start Code Server")
+                if process.poll() is not None:
+                    stdout, stderr = process.communicate()
+                    print(f"Error: {stderr.decode()}")
+
+        except Exception as e:
+            print(f"❌ Failed to restart Code Server: {e}")
+
+    def _force_kill_code_server(self):
+        """Force kill Code Server process."""
+        try:
+            import psutil
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                if proc.info['name'] == 'code-server' or (
+                    proc.info['cmdline'] and 'code-server' in ' '.join(proc.info['cmdline'])
+                ):
+                    print(f"🔪 Force killing process {proc.info['pid']}")
+                    proc.kill()
+                    break
+        except ImportError:
+            # Fallback to pkill
+            import subprocess
+            subprocess.run(["pkill", "-f", "code-server"], capture_output=True)
 
     def setup_cloudflare_tunnel(self):
         """Setup Cloudflare Tunnel for Code Server."""
