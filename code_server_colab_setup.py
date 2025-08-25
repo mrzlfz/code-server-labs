@@ -530,8 +530,9 @@ class CodeServerSetup:
                 ("7", "📦 Manage Extensions", self.manage_extensions),
                 ("8", "� Extension Registry", self.configure_extension_registry),
                 ("9", "�🌐 Setup Ngrok", self.setup_ngrok),
-                ("10", "🔧 System Info", self.show_system_info),
-                ("11", "📋 View Logs", self.view_logs),
+                ("10", "☁️ Setup Cloudflare Tunnel", self.setup_cloudflare_tunnel),
+                ("11", "🔧 System Info", self.show_system_info),
+                ("12", "📋 View Logs", self.view_logs),
                 ("0", "❌ Exit", self._exit_app)
             ]
 
@@ -1592,9 +1593,17 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         print("   - Use your own marketplace")
         print("   - Enterprise/private registries")
         print()
+        print("4. Debug Current Configuration")
+        print("   - Verify environment variables")
+        print("   - Check Code Server process")
+        print()
+        print("5. Force Restart with Environment")
+        print("   - Restart Code Server with current env vars")
+        print("   - Fix registry not applying issue")
+        print()
         print("0. Back to Main Menu")
 
-        choice = input("\n👉 Select registry (0-3): ").strip()
+        choice = input("\n👉 Select registry (0-5): ").strip()
 
         if choice == "1":
             self._configure_openvsx_registry()
@@ -1602,6 +1611,10 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self._configure_microsoft_registry()
         elif choice == "3":
             self._configure_custom_registry()
+        elif choice == "4":
+            self._debug_registry_configuration()
+        elif choice == "5":
+            self._force_restart_with_env()
         elif choice == "0":
             return
         else:
@@ -1759,6 +1772,476 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self.logger.error(f"Failed to update shell profile: {e}")
             print(f"⚠️  Warning: Could not update shell profile: {e}")
             print("💡 You may need to set EXTENSIONS_GALLERY manually")
+
+    def _debug_registry_configuration(self):
+        """Debug extension registry configuration."""
+        print("\n🔍 Debug Extension Registry Configuration")
+
+        # Check current environment variable
+        print("📋 Environment Variable Check:")
+        extensions_gallery = os.environ.get('EXTENSIONS_GALLERY')
+        if extensions_gallery:
+            print(f"✅ EXTENSIONS_GALLERY is set:")
+            print(f"   {extensions_gallery}")
+
+            try:
+                import json
+                config = json.loads(extensions_gallery)
+                service_url = config.get('serviceUrl', '')
+                if 'marketplace.visualstudio.com' in service_url:
+                    print("✅ Microsoft Marketplace is configured")
+                elif 'open-vsx.org' in service_url:
+                    print("ℹ️  Open VSX Registry is configured")
+                else:
+                    print(f"ℹ️  Custom registry: {service_url}")
+            except json.JSONDecodeError:
+                print("❌ Invalid JSON in EXTENSIONS_GALLERY")
+        else:
+            print("❌ EXTENSIONS_GALLERY is not set (using default Open VSX)")
+
+        # Check shell profile
+        print("\n📋 Shell Profile Check:")
+        shell_profiles = [
+            os.path.expanduser("~/.bashrc"),
+            os.path.expanduser("~/.bash_profile"),
+            os.path.expanduser("~/.zshrc")
+        ]
+
+        found_in_profile = False
+        for profile in shell_profiles:
+            if os.path.exists(profile):
+                try:
+                    with open(profile, 'r') as f:
+                        content = f.read()
+                        if 'EXTENSIONS_GALLERY' in content:
+                            print(f"✅ Found EXTENSIONS_GALLERY in {profile}")
+                            # Extract the line
+                            for line in content.split('\n'):
+                                if 'EXTENSIONS_GALLERY' in line:
+                                    print(f"   {line.strip()}")
+                            found_in_profile = True
+                        else:
+                            print(f"ℹ️  {profile} exists but no EXTENSIONS_GALLERY found")
+                except Exception as e:
+                    print(f"❌ Error reading {profile}: {e}")
+            else:
+                print(f"ℹ️  {profile} does not exist")
+
+        if not found_in_profile:
+            print("❌ EXTENSIONS_GALLERY not found in any shell profile")
+
+        # Check Code Server process
+        print("\n📋 Code Server Process Check:")
+        if self._is_code_server_running():
+            print("✅ Code Server is running")
+
+            # Try to get process environment
+            try:
+                import psutil
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    if proc.info['name'] == 'code-server' or (
+                        proc.info['cmdline'] and 'code-server' in ' '.join(proc.info['cmdline'])
+                    ):
+                        print(f"🆔 Process ID: {proc.info['pid']}")
+                        try:
+                            env = proc.environ()
+                            if 'EXTENSIONS_GALLERY' in env:
+                                print("✅ Code Server process has EXTENSIONS_GALLERY:")
+                                print(f"   {env['EXTENSIONS_GALLERY']}")
+                            else:
+                                print("❌ Code Server process does NOT have EXTENSIONS_GALLERY")
+                                print("💡 This is why Microsoft Marketplace is not working!")
+                        except (psutil.AccessDenied, psutil.NoSuchProcess):
+                            print("⚠️  Cannot access process environment (permission denied)")
+                        break
+                else:
+                    print("❌ Code Server process not found")
+            except ImportError:
+                print("⚠️  psutil not available - cannot check process environment")
+        else:
+            print("❌ Code Server is not running")
+
+        # Provide solutions
+        print("\n💡 Solutions:")
+        if not extensions_gallery:
+            print("1. Run option 2 (Microsoft Marketplace) to set EXTENSIONS_GALLERY")
+
+        if not found_in_profile:
+            print("2. EXTENSIONS_GALLERY not persistent - will be lost on restart")
+            print("   Re-run option 2 to update shell profile")
+
+        if self._is_code_server_running():
+            print("3. Code Server needs restart to pick up new environment variables")
+            print("   Use option 4 (Restart Code Server) after configuring registry")
+
+        print("\n🔧 Quick Fix:")
+        print("1. Stop Code Server (option 3)")
+        print("2. Configure Microsoft Marketplace (option 8 → 2)")
+        print("3. Start Code Server (option 2)")
+        print("4. Verify extensions are now from Microsoft Marketplace")
+
+    def _force_restart_with_env(self):
+        """Force restart Code Server with current environment variables."""
+        print("\n🔄 Force Restart with Environment Variables")
+
+        if self._is_code_server_running():
+            print("⏹️  Stopping Code Server...")
+            self.stop_code_server()
+
+            # Wait a moment
+            import time
+            time.sleep(2)
+
+        print("▶️  Starting Code Server with current environment...")
+
+        # Get current EXTENSIONS_GALLERY
+        extensions_gallery = os.environ.get('EXTENSIONS_GALLERY')
+        if extensions_gallery:
+            print(f"🏪 Using registry: {self._get_current_registry()}")
+
+        # Start Code Server
+        self.start_code_server()
+
+        print("✅ Code Server restarted with current environment variables!")
+        print("🔍 Check Extensions tab to verify Microsoft Marketplace is active")
+
+    def setup_cloudflare_tunnel(self):
+        """Setup Cloudflare Tunnel for Code Server."""
+        print("\n☁️ Cloudflare Tunnel Setup")
+
+        print("📋 Cloudflare Tunnel Options:")
+        print("1. Install Cloudflared")
+        print("2. Login to Cloudflare")
+        print("3. Create New Tunnel")
+        print("4. Configure Tunnel")
+        print("5. Start Tunnel")
+        print("6. Stop Tunnel")
+        print("7. Quick Setup (TryCloudflare)")
+        print("8. Verify Current Configuration")
+        print("0. Back to Main Menu")
+
+        choice = input("\n👉 Select option (0-8): ").strip()
+
+        if choice == "1":
+            self._install_cloudflared()
+        elif choice == "2":
+            self._cloudflare_login()
+        elif choice == "3":
+            self._create_cloudflare_tunnel()
+        elif choice == "4":
+            self._configure_cloudflare_tunnel()
+        elif choice == "5":
+            self._start_cloudflare_tunnel()
+        elif choice == "6":
+            self._stop_cloudflare_tunnel()
+        elif choice == "7":
+            self._quick_cloudflare_setup()
+        elif choice == "8":
+            self._verify_cloudflare_config()
+        elif choice == "0":
+            return
+        else:
+            print("❌ Invalid option")
+
+    def _install_cloudflared(self):
+        """Install Cloudflared binary."""
+        print("\n📦 Installing Cloudflared...")
+
+        try:
+            # Check if already installed
+            result = subprocess.run(["cloudflared", "--version"],
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ Cloudflared already installed: {result.stdout.strip()}")
+                return
+        except FileNotFoundError:
+            pass
+
+        # Determine architecture and OS
+        import platform
+        system = platform.system().lower()
+        machine = platform.machine().lower()
+
+        arch_map = {
+            "x86_64": "amd64",
+            "aarch64": "arm64",
+            "armv7l": "arm"
+        }
+        arch = arch_map.get(machine, "amd64")
+
+        if system == "linux":
+            # Download and install for Linux
+            download_url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{arch}"
+
+            print(f"📥 Downloading cloudflared for {system}-{arch}...")
+            success, output = SystemUtils.run_command([
+                "curl", "-L", download_url, "-o", "/tmp/cloudflared"
+            ])
+
+            if not success:
+                print(f"❌ Failed to download cloudflared: {output}")
+                return
+
+            # Make executable and move to bin
+            SystemUtils.run_command(["chmod", "+x", "/tmp/cloudflared"])
+            success, output = SystemUtils.run_command([
+                "sudo", "mv", "/tmp/cloudflared", "/usr/local/bin/cloudflared"
+            ])
+
+            if success:
+                print("✅ Cloudflared installed successfully!")
+                # Verify installation
+                result = subprocess.run(["cloudflared", "--version"],
+                                      capture_output=True, text=True)
+                if result.returncode == 0:
+                    print(f"📋 Version: {result.stdout.strip()}")
+            else:
+                print(f"❌ Failed to install cloudflared: {output}")
+
+        else:
+            print(f"❌ Unsupported system: {system}")
+            print("💡 Please install cloudflared manually from:")
+            print("   https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation")
+
+    def _cloudflare_login(self):
+        """Login to Cloudflare account."""
+        print("\n🔐 Cloudflare Login")
+
+        print("📋 Login Options:")
+        print("1. Browser Login (Recommended)")
+        print("2. API Token Login")
+        print("0. Back")
+
+        choice = input("\n👉 Select option (0-2): ").strip()
+
+        if choice == "1":
+            print("🌐 Opening browser for Cloudflare login...")
+            success, output = SystemUtils.run_command(["cloudflared", "tunnel", "login"])
+
+            if success:
+                print("✅ Login successful!")
+                print("📋 Certificate saved to ~/.cloudflared/cert.pem")
+            else:
+                print(f"❌ Login failed: {output}")
+
+        elif choice == "2":
+            api_token = input("Enter your Cloudflare API Token: ").strip()
+            if api_token:
+                # Set environment variable
+                os.environ['CLOUDFLARE_API_TOKEN'] = api_token
+                print("✅ API Token configured!")
+                print("💡 Token will be used for this session")
+            else:
+                print("❌ No API token provided")
+
+    def _create_cloudflare_tunnel(self):
+        """Create a new Cloudflare tunnel."""
+        print("\n🚇 Create Cloudflare Tunnel")
+
+        tunnel_name = input("Enter tunnel name: ").strip()
+        if not tunnel_name:
+            print("❌ Tunnel name is required")
+            return
+
+        print(f"🚇 Creating tunnel: {tunnel_name}...")
+        success, output = SystemUtils.run_command([
+            "cloudflared", "tunnel", "create", tunnel_name
+        ])
+
+        if success:
+            print("✅ Tunnel created successfully!")
+            print(f"📋 Output: {output}")
+
+            # Extract tunnel ID from output
+            import re
+            tunnel_id_match = re.search(r'([a-f0-9-]{36})', output)
+            if tunnel_id_match:
+                tunnel_id = tunnel_id_match.group(1)
+                print(f"🆔 Tunnel ID: {tunnel_id}")
+
+                # Save tunnel info to config
+                self.config.set("cloudflare.tunnel_name", tunnel_name)
+                self.config.set("cloudflare.tunnel_id", tunnel_id)
+        else:
+            print(f"❌ Failed to create tunnel: {output}")
+
+    def _configure_cloudflare_tunnel(self):
+        """Configure Cloudflare tunnel."""
+        print("\n⚙️ Configure Cloudflare Tunnel")
+
+        tunnel_name = self.config.get("cloudflare.tunnel_name")
+        tunnel_id = self.config.get("cloudflare.tunnel_id")
+
+        if not tunnel_name or not tunnel_id:
+            print("❌ No tunnel found. Please create a tunnel first.")
+            return
+
+        print(f"🚇 Configuring tunnel: {tunnel_name} ({tunnel_id})")
+
+        # Get Code Server port
+        port = self.config.get("code_server.port", 8080)
+
+        # Create config file
+        config_dir = Path.home() / ".cloudflared"
+        config_dir.mkdir(exist_ok=True)
+        config_file = config_dir / "config.yml"
+
+        config_content = f"""tunnel: {tunnel_id}
+credentials-file: {config_dir}/{tunnel_id}.json
+
+ingress:
+  - service: http://localhost:{port}
+"""
+
+        with open(config_file, 'w') as f:
+            f.write(config_content)
+
+        print(f"✅ Configuration saved to: {config_file}")
+        print("📋 Configuration:")
+        print(config_content)
+
+    def _start_cloudflare_tunnel(self):
+        """Start Cloudflare tunnel."""
+        print("\n▶️ Start Cloudflare Tunnel")
+
+        tunnel_name = self.config.get("cloudflare.tunnel_name")
+        if not tunnel_name:
+            print("❌ No tunnel configured. Please create and configure a tunnel first.")
+            return
+
+        print(f"🚇 Starting tunnel: {tunnel_name}...")
+
+        # Start tunnel in background
+        try:
+            process = subprocess.Popen([
+                "cloudflared", "tunnel", "run", tunnel_name
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Store process info
+            self.config.set("cloudflare.process_pid", process.pid)
+
+            print("✅ Tunnel started successfully!")
+            print(f"🆔 Process ID: {process.pid}")
+            print("💡 Tunnel is running in the background")
+
+        except Exception as e:
+            print(f"❌ Failed to start tunnel: {e}")
+
+    def _stop_cloudflare_tunnel(self):
+        """Stop Cloudflare tunnel."""
+        print("\n⏹️ Stop Cloudflare Tunnel")
+
+        pid = self.config.get("cloudflare.process_pid")
+        if pid:
+            try:
+                import signal
+                os.kill(pid, signal.SIGTERM)
+                print("✅ Tunnel stopped successfully!")
+                self.config.set("cloudflare.process_pid", None)
+            except ProcessLookupError:
+                print("ℹ️ Tunnel process not found (may already be stopped)")
+                self.config.set("cloudflare.process_pid", None)
+            except Exception as e:
+                print(f"❌ Failed to stop tunnel: {e}")
+        else:
+            print("ℹ️ No tunnel process found")
+
+    def _quick_cloudflare_setup(self):
+        """Quick setup using TryCloudflare."""
+        print("\n⚡ Quick Cloudflare Setup (TryCloudflare)")
+        print("💡 This creates a temporary tunnel without requiring a Cloudflare account")
+
+        # Get Code Server port
+        port = self.config.get("code_server.port", 8080)
+
+        print(f"🚇 Creating temporary tunnel for localhost:{port}...")
+
+        try:
+            # Start TryCloudflare tunnel
+            process = subprocess.Popen([
+                "cloudflared", "tunnel", "--url", f"http://localhost:{port}"
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # Wait a bit for tunnel to establish
+            import time
+            time.sleep(3)
+
+            # Try to get the URL from output
+            if process.poll() is None:  # Process is still running
+                print("✅ Temporary tunnel started!")
+                print(f"🆔 Process ID: {process.pid}")
+                print("🌐 Check the terminal output for the tunnel URL")
+                print("💡 The URL will be something like: https://xxx.trycloudflare.com")
+
+                # Store process info
+                self.config.set("cloudflare.temp_process_pid", process.pid)
+            else:
+                stdout, stderr = process.communicate()
+                print(f"❌ Failed to start tunnel: {stderr}")
+
+        except Exception as e:
+            print(f"❌ Failed to start temporary tunnel: {e}")
+
+    def _verify_cloudflare_config(self):
+        """Verify Cloudflare configuration."""
+        print("\n🔍 Verify Cloudflare Configuration")
+
+        # Check if cloudflared is installed
+        try:
+            result = subprocess.run(["cloudflared", "--version"],
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ Cloudflared installed: {result.stdout.strip()}")
+            else:
+                print("❌ Cloudflared not installed")
+                return
+        except FileNotFoundError:
+            print("❌ Cloudflared not found")
+            return
+
+        # Check authentication
+        cert_file = Path.home() / ".cloudflared" / "cert.pem"
+        if cert_file.exists():
+            print("✅ Cloudflare certificate found")
+        else:
+            print("❌ Cloudflare certificate not found (not logged in)")
+
+        # Check tunnel configuration
+        tunnel_name = self.config.get("cloudflare.tunnel_name")
+        tunnel_id = self.config.get("cloudflare.tunnel_id")
+
+        if tunnel_name and tunnel_id:
+            print(f"✅ Tunnel configured: {tunnel_name} ({tunnel_id})")
+
+            # Check config file
+            config_file = Path.home() / ".cloudflared" / "config.yml"
+            if config_file.exists():
+                print(f"✅ Configuration file found: {config_file}")
+            else:
+                print("❌ Configuration file not found")
+        else:
+            print("❌ No tunnel configured")
+
+        # Check if tunnel is running
+        pid = self.config.get("cloudflare.process_pid")
+        temp_pid = self.config.get("cloudflare.temp_process_pid")
+
+        if pid:
+            try:
+                os.kill(pid, 0)  # Check if process exists
+                print(f"✅ Tunnel running (PID: {pid})")
+            except ProcessLookupError:
+                print("❌ Tunnel process not found")
+                self.config.set("cloudflare.process_pid", None)
+        elif temp_pid:
+            try:
+                os.kill(temp_pid, 0)
+                print(f"✅ Temporary tunnel running (PID: {temp_pid})")
+            except ProcessLookupError:
+                print("❌ Temporary tunnel process not found")
+                self.config.set("cloudflare.temp_process_pid", None)
+        else:
+            print("ℹ️ No tunnel process running")
 
     def show_system_info(self):
         """Show detailed system information."""
