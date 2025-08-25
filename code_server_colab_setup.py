@@ -1654,11 +1654,12 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
         print("✅ Open VSX Registry configured successfully!")
         print("💡 This is the default registry - no special configuration needed")
-        print("🔄 Restart Code Server to apply changes")
+        print("🔄 Code Server will use default Open VSX registry")
 
         restart = input("\n🔄 Restart Code Server now? (y/N): ").strip().lower()
         if restart == 'y':
-            self.restart_code_server()
+            print("🔄 Restarting Code Server...")
+            self._force_restart_with_env()
 
     def _configure_microsoft_registry(self):
         """Configure Microsoft Visual Studio Marketplace."""
@@ -1687,11 +1688,15 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
         print("✅ Microsoft Marketplace configured successfully!")
         print("🔍 You can now search and install Microsoft extensions")
-        print("🔄 Restart Code Server to apply changes")
+        print("🔄 Code Server needs restart with new environment variables")
 
-        restart = input("\n🔄 Restart Code Server now? (y/N): ").strip().lower()
+        restart = input("\n🔄 Force restart Code Server now? (y/N): ").strip().lower()
         if restart == 'y':
-            self.restart_code_server()
+            print("🔄 Using force restart to ensure environment variables are loaded...")
+            self._force_restart_with_env()
+        else:
+            print("💡 Remember to use 'Force Restart with Environment' later!")
+            print("   Menu: 8 → 5 (Force Restart with Environment)")
 
     def _configure_custom_registry(self):
         """Configure custom extension registry."""
@@ -1775,6 +1780,9 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
     def _debug_registry_configuration(self):
         """Debug extension registry configuration."""
+        # Clear terminal to avoid control character issues
+        self._clear_terminal()
+
         print("\n🔍 Debug Extension Registry Configuration")
 
         # Disable terminal control characters that might cause issues
@@ -1941,10 +1949,6 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
         print("▶️  Starting Code Server with current environment...")
 
-        # Explicitly set environment variable for the new process
-        import subprocess
-        import os
-
         # Get Code Server configuration
         port = self.config.get("code_server.port", 8080)
         password = self.config.get("code_server.password", "colab123")
@@ -2040,6 +2044,22 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             # Fallback to pkill
             import subprocess
             subprocess.run(["pkill", "-f", "code-server"], capture_output=True)
+
+    def _clear_terminal(self):
+        """Clear terminal and reset to avoid control character issues."""
+        try:
+            import os
+            # Clear screen
+            os.system('clear' if os.name == 'posix' else 'cls')
+            # Reset terminal
+            print('\033[0m', end='')  # Reset all formatting
+            print('\033[2J', end='')  # Clear screen
+            print('\033[H', end='')   # Move cursor to home
+            import sys
+            sys.stdout.flush()
+        except Exception:
+            # If clearing fails, just continue
+            pass
 
     def setup_cloudflare_tunnel(self):
         """Setup Cloudflare Tunnel for Code Server."""
