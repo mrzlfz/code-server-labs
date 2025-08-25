@@ -767,29 +767,7 @@ class CodeServerSetup:
             self.logger.error(f"Symlink creation failed: {e}")
             return False
 
-    def _create_code_server_config(self):
-        """Create Code Server configuration file."""
-        try:
-            config_dir = Path.home() / ".config" / "code-server"
-            config_dir.mkdir(parents=True, exist_ok=True)
 
-            config_file = config_dir / "config.yaml"
-
-            config_content = f"""bind-addr: {self.config.get('code_server.bind_addr')}:{self.config.get('code_server.port')}
-auth: {self.config.get('code_server.auth')}
-password: {self.config.get('code_server.password')}
-cert: false
-extensions-dir: {self.config.get('code_server.extensions_dir')}
-user-data-dir: {self.config.get('code_server.user_data_dir')}
-"""
-
-            with open(config_file, 'w') as f:
-                f.write(config_content)
-
-            self.logger.info("Code Server config created")
-
-        except Exception as e:
-            self.logger.error(f"Config creation failed: {e}")
 
     def _create_crypto_polyfill(self):
         """Create crypto polyfill for web worker environments."""
@@ -970,49 +948,39 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
     def _create_code_server_config(self):
         """Create code-server configuration file with crypto polyfill support."""
-        config_dir = Path.home() / ".config" / "code-server"
-        config_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            config_dir = Path.home() / ".config" / "code-server"
+            config_dir.mkdir(parents=True, exist_ok=True)
 
-        config_file = config_dir / "config.yaml"
-        polyfill_file = self._create_crypto_polyfill()
+            config_file = config_dir / "config.yaml"
 
-        # Get current configuration
-        port = self.config.get("code_server.port", 8080)
-        password = self.config.get("code_server.password", "colab123")
+            # Get current configuration
+            port = self.config.get("code_server.port", 8080)
+            password = self.config.get("code_server.password", "colab123")
 
-        config_content = f'''# Code Server Configuration with Crypto Polyfill Support
+            # Create simple, compatible configuration
+            config_content = f'''# Code Server Configuration
 bind-addr: 0.0.0.0:{port}
 auth: password
 password: {password}
 cert: false
-
-# Extension configuration
 extensions-dir: {Path.home() / ".local" / "share" / "code-server" / "extensions"}
 user-data-dir: {Path.home() / ".local" / "share" / "code-server"}
-
-# Enable proposed APIs for better extension compatibility
-enable-proposed-api: ["*"]
-
-# Web worker extension host configuration
-web-worker-extension-host: true
-
-# Additional arguments for better Node.js compatibility
-additional-builtin-extensions-dir: {Path.home() / ".local" / "share" / "code-server" / "builtin-extensions"}
-
-# Disable telemetry
 disable-telemetry: true
 disable-update-check: true
-
-# Logging
 log: info
-verbose: false
 '''
 
-        with open(config_file, 'w') as f:
-            f.write(config_content)
+            with open(config_file, 'w') as f:
+                f.write(config_content)
 
-        print(f"🔧 Code-server config created: {config_file}")
-        return config_file
+            print(f"🔧 Code-server config created: {config_file}")
+            return config_file
+
+        except Exception as e:
+            print(f"❌ Failed to create config file: {e}")
+            # Return None to indicate failure
+            return None
 
     def _inject_crypto_polyfill_to_extensions(self):
         """Inject crypto polyfill into existing extensions that need it."""
@@ -1180,6 +1148,10 @@ verbose: false
             # Create code-server configuration with crypto polyfill support
             config_file = self._create_code_server_config()
 
+            if not config_file:
+                print("❌ Failed to create configuration file")
+                return
+
             # Inject crypto polyfill into existing extensions
             injected_count = self._inject_crypto_polyfill_to_extensions()
 
@@ -1202,6 +1174,9 @@ verbose: false
             env = self._setup_nodejs_environment(env)
 
             # Start process with configuration file
+            print(f"🔧 Starting with config: {config_file}")
+            print(f"🔧 Command: {code_server_bin} --config {config_file}")
+
             self.code_server_process = subprocess.Popen(
                 [str(code_server_bin), "--config", str(config_file)],
                 env=env,
@@ -1230,9 +1205,53 @@ verbose: false
             else:
                 print("❌ Failed to start Code Server")
 
+                # Get error details from process
+                if self.code_server_process and self.code_server_process.poll() is not None:
+                    try:
+                        stdout, stderr = self.code_server_process.communicate(timeout=5)
+                        if stderr:
+                            print(f"🔍 Error details: {stderr.decode().strip()}")
+                        if stdout:
+                            print(f"🔍 Output: {stdout.decode().strip()}")
+                    except subprocess.TimeoutExpired:
+                        print("⏱️  Process still running but not responding")
+                    except Exception as comm_error:
+                        print(f"⚠️  Could not get error details: {comm_error}")
+
         except Exception as e:
             self.logger.error(f"Failed to start Code Server: {e}")
             print(f"❌ Failed to start Code Server: {e}")
+            print(f"🔍 Exception details: {str(e)}")
+
+            # Try to start without config file as fallback
+            print("\n🔄 Attempting fallback startup without config file...")
+            try:
+                self.code_server_process = subprocess.Popen(
+                    [str(code_server_bin)],
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True
+                )
+
+                time.sleep(3)
+
+                if self._is_code_server_running():
+                    print("✅ Code Server started successfully with fallback method!")
+                    print(f"\n🌐 Access Code Server at: http://127.0.0.1:8080")
+                    print(f"🔑 Password: {password}")
+                else:
+                    print("❌ Fallback startup also failed")
+                    if self.code_server_process and self.code_server_process.poll() is not None:
+                        try:
+                            stdout, stderr = self.code_server_process.communicate(timeout=5)
+                            if stderr:
+                                print(f"🔍 Fallback error: {stderr.decode().strip()}")
+                        except:
+                            pass
+
+            except Exception as fallback_error:
+                print(f"❌ Fallback startup failed: {fallback_error}")
 
     def _setup_default_hybrid_registry(self):
         """Setup default hybrid registry configuration automatically."""
