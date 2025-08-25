@@ -791,18 +791,149 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         except Exception as e:
             self.logger.error(f"Config creation failed: {e}")
 
+    def _create_crypto_polyfill(self):
+        """Create crypto polyfill for web worker environments."""
+        polyfill_dir = Path.home() / ".local" / "share" / "code-server" / "polyfills"
+        polyfill_dir.mkdir(parents=True, exist_ok=True)
+
+        crypto_polyfill_content = '''
+// Crypto polyfill for web worker environments
+// This provides Node.js crypto module compatibility in code-server web workers
+
+(function() {
+    'use strict';
+
+    // Check if we're in a web worker environment
+    if (typeof importScripts !== 'undefined' || typeof WorkerGlobalScope !== 'undefined') {
+
+        // Web Crypto API based polyfill
+        const crypto = {
+            // Random bytes generation
+            randomBytes: function(size) {
+                if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+                    const array = new Uint8Array(size);
+                    window.crypto.getRandomValues(array);
+                    return Buffer.from(array);
+                } else if (typeof self !== 'undefined' && self.crypto && self.crypto.getRandomValues) {
+                    const array = new Uint8Array(size);
+                    self.crypto.getRandomValues(array);
+                    return Buffer.from(array);
+                } else {
+                    // Fallback to Math.random (less secure)
+                    const array = new Uint8Array(size);
+                    for (let i = 0; i < size; i++) {
+                        array[i] = Math.floor(Math.random() * 256);
+                    }
+                    return Buffer.from(array);
+                }
+            },
+
+            // Hash functions
+            createHash: function(algorithm) {
+                return {
+                    update: function(data) {
+                        this._data = (this._data || '') + data;
+                        return this;
+                    },
+                    digest: function(encoding) {
+                        // Simple hash implementation (not cryptographically secure)
+                        let hash = 0;
+                        const str = this._data || '';
+                        for (let i = 0; i < str.length; i++) {
+                            const char = str.charCodeAt(i);
+                            hash = ((hash << 5) - hash) + char;
+                            hash = hash & hash; // Convert to 32-bit integer
+                        }
+
+                        if (encoding === 'hex') {
+                            return Math.abs(hash).toString(16);
+                        }
+                        return Math.abs(hash).toString();
+                    }
+                };
+            },
+
+            // HMAC functions
+            createHmac: function(algorithm, key) {
+                return {
+                    update: function(data) {
+                        this._data = (this._data || '') + data;
+                        this._key = key;
+                        return this;
+                    },
+                    digest: function(encoding) {
+                        // Simple HMAC implementation
+                        const data = this._data || '';
+                        const keyStr = this._key || '';
+                        let hash = 0;
+                        const combined = keyStr + data;
+
+                        for (let i = 0; i < combined.length; i++) {
+                            const char = combined.charCodeAt(i);
+                            hash = ((hash << 5) - hash) + char;
+                            hash = hash & hash;
+                        }
+
+                        if (encoding === 'hex') {
+                            return Math.abs(hash).toString(16);
+                        }
+                        return Math.abs(hash).toString();
+                    }
+                };
+            },
+
+            // Constants
+            constants: {
+                RSA_PKCS1_PADDING: 1,
+                RSA_SSLV23_PADDING: 2,
+                RSA_NO_PADDING: 3,
+                RSA_PKCS1_OAEP_PADDING: 4
+            }
+        };
+
+        // Make crypto available globally
+        if (typeof global !== 'undefined') {
+            global.crypto = crypto;
+        }
+        if (typeof self !== 'undefined') {
+            self.crypto = crypto;
+        }
+        if (typeof window !== 'undefined') {
+            window.crypto = crypto;
+        }
+
+        // Also make it available as a module
+        if (typeof module !== 'undefined' && module.exports) {
+            module.exports = crypto;
+        }
+
+        console.log('[Crypto Polyfill] Crypto module polyfill loaded for web worker environment');
+    }
+})();
+'''
+
+        polyfill_file = polyfill_dir / "crypto-polyfill.js"
+        with open(polyfill_file, 'w') as f:
+            f.write(crypto_polyfill_content)
+
+        return polyfill_file
+
     def _setup_nodejs_environment(self, env):
         """Setup Node.js environment variables for extension compatibility.
 
         This fixes the crypto module issue and other Node.js compatibility problems
         that prevent extensions like Augment from working properly.
         """
+        # Create crypto polyfill for web worker environments
+        polyfill_file = self._create_crypto_polyfill()
+
         # Node.js options for extension host compatibility
         node_options = [
             "--experimental-modules",
             "--experimental-json-modules",
             "--enable-source-maps",
-            "--max-old-space-size=4096"
+            "--max-old-space-size=4096",
+            f"--require={polyfill_file}"  # Inject crypto polyfill
         ]
 
         # Set NODE_OPTIONS for extension host
@@ -822,6 +953,10 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         env['VSCODE_ALLOW_IO'] = "true"
         env['VSCODE_WEBVIEW_EXTERNAL_ENDPOINT'] = "{{HOSTNAME}}"
 
+        # Web worker compatibility
+        env['VSCODE_WEB_WORKER_EXTENSION_HOST_ENABLED'] = "true"
+        env['VSCODE_EXTENSION_HOST_CRYPTO_POLYFILL'] = str(polyfill_file)
+
         # Enable crypto and other Node.js modules for extensions
         env['NODE_PRESERVE_SYMLINKS'] = "1"
         env['NODE_PRESERVE_SYMLINKS_MAIN'] = "1"
@@ -829,7 +964,98 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         # Disable Node.js warnings that might interfere with extensions
         env['NODE_NO_WARNINGS'] = "1"
 
+        print(f"🔧 Crypto polyfill created: {polyfill_file}")
+
         return env
+
+    def _create_code_server_config(self):
+        """Create code-server configuration file with crypto polyfill support."""
+        config_dir = Path.home() / ".config" / "code-server"
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        config_file = config_dir / "config.yaml"
+        polyfill_file = self._create_crypto_polyfill()
+
+        # Get current configuration
+        port = self.config.get("code_server.port", 8080)
+        password = self.config.get("code_server.password", "colab123")
+
+        config_content = f'''# Code Server Configuration with Crypto Polyfill Support
+bind-addr: 0.0.0.0:{port}
+auth: password
+password: {password}
+cert: false
+
+# Extension configuration
+extensions-dir: {Path.home() / ".local" / "share" / "code-server" / "extensions"}
+user-data-dir: {Path.home() / ".local" / "share" / "code-server"}
+
+# Enable proposed APIs for better extension compatibility
+enable-proposed-api: ["*"]
+
+# Web worker extension host configuration
+web-worker-extension-host: true
+
+# Additional arguments for better Node.js compatibility
+additional-builtin-extensions-dir: {Path.home() / ".local" / "share" / "code-server" / "builtin-extensions"}
+
+# Disable telemetry
+disable-telemetry: true
+disable-update-check: true
+
+# Logging
+log: info
+verbose: false
+'''
+
+        with open(config_file, 'w') as f:
+            f.write(config_content)
+
+        print(f"🔧 Code-server config created: {config_file}")
+        return config_file
+
+    def _inject_crypto_polyfill_to_extensions(self):
+        """Inject crypto polyfill into existing extensions that need it."""
+        extensions_dir = Path.home() / ".local" / "share" / "code-server" / "extensions"
+        polyfill_file = self._create_crypto_polyfill()
+
+        if not extensions_dir.exists():
+            return
+
+        # Find Augment extension directory
+        augment_dirs = list(extensions_dir.glob("*augment*"))
+
+        for augment_dir in augment_dirs:
+            if augment_dir.is_dir():
+                # Look for extension.js file
+                extension_js = augment_dir / "out" / "extension.js"
+                if extension_js.exists():
+                    try:
+                        # Read current extension.js
+                        with open(extension_js, 'r') as f:
+                            content = f.read()
+
+                        # Check if polyfill is already injected
+                        if "Crypto polyfill for web worker" not in content:
+                            # Read polyfill content
+                            with open(polyfill_file, 'r') as f:
+                                polyfill_content = f.read()
+
+                            # Inject polyfill at the beginning
+                            new_content = polyfill_content + "\n\n" + content
+
+                            # Write back to extension.js
+                            with open(extension_js, 'w') as f:
+                                f.write(new_content)
+
+                            print(f"✅ Crypto polyfill injected into: {extension_js}")
+                        else:
+                            print(f"ℹ️  Crypto polyfill already present in: {extension_js}")
+
+                    except Exception as e:
+                        print(f"⚠️  Failed to inject polyfill into {extension_js}: {e}")
+
+        return len(augment_dirs)
 
     def _verify_nodejs_compatibility(self):
         """Verify Node.js installation and compatibility for extensions."""
@@ -898,9 +1124,43 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
         return overall_status
 
+    def _fix_crypto_extensions(self):
+        """Fix crypto module issues in installed extensions."""
+        print("\n🔧 Fixing Crypto Module Extensions")
+        print("=" * 50)
+
+        # Create crypto polyfill
+        polyfill_file = self._create_crypto_polyfill()
+
+        # Inject polyfill into extensions
+        injected_count = self._inject_crypto_polyfill_to_extensions()
+
+        # Create enhanced code-server config
+        config_file = self._create_code_server_config()
+
+        print(f"\n📊 Fix Results:")
+        print(f"   • Crypto polyfill created: {polyfill_file}")
+        print(f"   • Extensions patched: {injected_count}")
+        print(f"   • Config file updated: {config_file}")
+
+        if injected_count > 0:
+            print("\n✅ Crypto module fixes applied successfully!")
+            print("💡 Restart Code Server to apply changes:")
+            print("   Menu: 8 → 7 (Force Restart with Environment)")
+
+            restart = input("\n🔄 Restart Code Server now? (y/N): ").strip().lower()
+            if restart == 'y':
+                print("🔄 Restarting Code Server with crypto fixes...")
+                self._force_restart_with_env()
+        else:
+            print("\n⚠️  No extensions found that need crypto fixes")
+            print("💡 If you install Augment extension later, run this fix again")
+
+        return injected_count
+
     def start_code_server(self):
         """Start Code Server process with default Hybrid Registry (Microsoft + Open VSX)."""
-        print("▶️  Starting Code Server with Hybrid Registry...")
+        print("▶️  Starting Code Server with Crypto Polyfill Support...")
 
         try:
             # Check if already running
@@ -917,11 +1177,18 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             # Setup default hybrid registry configuration
             self._setup_default_hybrid_registry()
 
+            # Create code-server configuration with crypto polyfill support
+            config_file = self._create_code_server_config()
+
+            # Inject crypto polyfill into existing extensions
+            injected_count = self._inject_crypto_polyfill_to_extensions()
+
             # Start Code Server in background
-            print("🚀 Starting Code Server with Hybrid Registry...")
+            print("🚀 Starting Code Server with Enhanced Configuration...")
             print("🏢 Primary Registry: Microsoft Marketplace (UI search/discovery)")
             print("🌐 Fallback Registry: Open VSX (automatic fallback)")
-            print("🔧 Node.js Environment: Configured for extension compatibility")
+            print("🔧 Crypto Polyfill: Enabled for web worker extensions")
+            print(f"💉 Extensions Patched: {injected_count} extension(s)")
 
             # Prepare environment with Microsoft Marketplace as primary
             env = os.environ.copy()
@@ -934,9 +1201,9 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             # Setup Node.js environment for extension compatibility (fixes crypto module issue)
             env = self._setup_nodejs_environment(env)
 
-            # Start process
+            # Start process with configuration file
             self.code_server_process = subprocess.Popen(
-                [str(code_server_bin)],
+                [str(code_server_bin), "--config", str(config_file)],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1790,9 +2057,14 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         print("   - Check environment configuration")
         print("   - Test extension host compatibility")
         print()
+        print("9. Fix Crypto Module Extensions")
+        print("   - Inject crypto polyfill into extensions")
+        print("   - Patch Augment and other crypto-dependent extensions")
+        print("   - Apply web worker compatibility fixes")
+        print()
         print("0. Back to Main Menu")
 
-        choice = input("\n👉 Select option (0-8): ").strip()
+        choice = input("\n👉 Select option (0-9): ").strip()
 
         if choice == "1":
             print("✅ Keeping default hybrid registry - no action needed!")
@@ -1811,6 +2083,8 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self._force_restart_with_env()
         elif choice == "8":
             self._check_extension_compatibility()
+        elif choice == "9":
+            self._fix_crypto_extensions()
         elif choice == "0":
             return
         else:

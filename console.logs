@@ -1,0 +1,382 @@
+log.ts:419  INFO Resolving connection token (d362d25a8629.ngrok-free.app)...
+log.ts:419  INFO Resolved connection token (d362d25a8629.ngrok-free.app) after 3 ms
+log.ts:419  INFO Creating a socket (renderer-Management-7ec2343d-1588-496f-97cb-033c26d13417)...
+log.ts:419  INFO Creating a socket (renderer-Management-7ec2343d-1588-496f-97cb-033c26d13417) was successful after 1532 ms.
+signService.ts:90  GET https://d362d25a8629.ngrok-free.app/stable-9a28bc29dbddb6886dfe03dc1c31320249a901ce/static/out/vsda_bg.wasm 404 (Not Found)
+k @ signService.ts:90
+j @ signService.ts:63
+S.y.<computed> @ decorators.ts:54
+c @ signService.ts:45
+createNewMessage @ abstractSignService.ts:29
+g @ remoteAgentConnection.ts:256
+await in g
+l @ remoteAgentConnection.ts:322
+d @ remoteAgentConnection.ts:344
+(anonymous) @ remoteAgentConnection.ts:418
+P @ remoteAgentConnection.ts:444
+await in P
+I @ remoteAgentConnection.ts:415
+u @ abstractRemoteAgentService.ts:217
+t @ abstractRemoteAgentService.ts:188
+getChannel @ abstractRemoteAgentService.ts:163
+withChannel @ abstractRemoteAgentService.ts:167
+m @ abstractRemoteAgentService.ts:122
+getRawEnvironment @ abstractRemoteAgentService.ts:59
+(anonymous) @ remoteFileSystemProviderClient.ts:30
+register @ remoteFileSystemProviderClient.ts:42
+j @ web.main.ts:331
+await in j
+open @ web.main.ts:123
+m @ web.factory.ts:62
+(anonymous) @ workbench.ts:569
+(anonymous) @ workbench.ts:612
+_invokeFactory @ loader.js:1139
+complete @ loader.js:1149
+_onModuleComplete @ loader.js:1765
+_resolve @ loader.js:1723
+defineModule @ loader.js:1373
+_ @ loader.js:1814
+(anonymous) @ fake:9
+(anonymous) @ fake:1
+loader.js:654  GET https://d362d25a8629.ngrok-free.app/stable-9a28bc29dbddb6886dfe03dc1c31320249a901ce/static/out/vsda.js net::ERR_ABORTED 404 (Not Found)
+load @ loader.js:654
+load @ loader.js:585
+o @ loader.js:1624
+_loadModule @ loader.js:1636
+_resolve @ loader.js:1719
+defineModule @ loader.js:1373
+_relativeRequire @ loader.js:1407
+e @ loader.js:1578
+(anonymous) @ signService.ts:65
+j @ signService.ts:64
+S.y.<computed> @ decorators.ts:54
+c @ signService.ts:45
+createNewMessage @ abstractSignService.ts:29
+g @ remoteAgentConnection.ts:256
+await in g
+l @ remoteAgentConnection.ts:322
+d @ remoteAgentConnection.ts:344
+(anonymous) @ remoteAgentConnection.ts:418
+P @ remoteAgentConnection.ts:444
+await in P
+I @ remoteAgentConnection.ts:415
+u @ abstractRemoteAgentService.ts:217
+t @ abstractRemoteAgentService.ts:188
+getChannel @ abstractRemoteAgentService.ts:163
+withChannel @ abstractRemoteAgentService.ts:167
+m @ abstractRemoteAgentService.ts:122
+getRawEnvironment @ abstractRemoteAgentService.ts:59
+(anonymous) @ remoteFileSystemProviderClient.ts:30
+register @ remoteFileSystemProviderClient.ts:42
+j @ web.main.ts:331
+await in j
+open @ web.main.ts:123
+m @ web.factory.ts:62
+(anonymous) @ workbench.ts:569
+(anonymous) @ workbench.ts:612
+_invokeFactory @ loader.js:1139
+complete @ loader.js:1149
+_onModuleComplete @ loader.js:1765
+_resolve @ loader.js:1723
+defineModule @ loader.js:1373
+_ @ loader.js:1814
+(anonymous) @ fake:9
+(anonymous) @ fake:1
+webWorkerExtensionHost.ts:115 The web worker extension host is started in a same-origin iframe!
+C @ webWorkerExtensionHost.ts:115
+D @ webWorkerExtensionHost.ts:131
+start @ webWorkerExtensionHost.ts:124
+n @ extensionHostManager.ts:117
+j @ instantiationService.ts:119
+createInstance @ instantiationService.ts:85
+wb @ abstractExtensionService.ts:783
+vb @ abstractExtensionService.ts:763
+ub @ abstractExtensionService.ts:750
+jb @ abstractExtensionService.ts:444
+(anonymous) @ extensionService.ts:108
+Promise.then
+z @ extensionService.ts:106
+j @ instantiationService.ts:119
+t @ instantiationService.ts:245
+s @ instantiationService.ts:234
+r @ instantiationService.ts:223
+q @ instantiationService.ts:163
+m @ instantiationService.ts:147
+get @ instantiationService.ts:61
+ob @ layout.ts:308
+(anonymous) @ workbench.ts:162
+invokeFunction @ instantiationService.ts:68
+startup @ workbench.ts:149
+open @ web.main.ts:132
+await in open
+m @ web.factory.ts:62
+(anonymous) @ workbench.ts:569
+(anonymous) @ workbench.ts:612
+_invokeFactory @ loader.js:1139
+complete @ loader.js:1149
+_onModuleComplete @ loader.js:1765
+_resolve @ loader.js:1723
+defineModule @ loader.js:1373
+_ @ loader.js:1814
+(anonymous) @ fake:9
+(anonymous) @ fake:1
+log.ts:419  INFO Updating additional builtin extensions cache
+log.ts:419  INFO Creating a socket (renderer-ExtensionHost-4131a9ac-4eb3-4e7c-b33b-38bedbdac48b)...
+Fetch event handler is recognized as no-op. No-op fetch handler may bring overhead during navigation. Consider removing the handler if possible.
+log.ts:419  INFO [Service Worker] registered
+log.ts:419  INFO Creating a socket (renderer-ExtensionHost-4131a9ac-4eb3-4e7c-b33b-38bedbdac48b) was successful after 2088 ms.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+VM135 index.html:261 Found unexpected service worker controller. Found: https://d362d25a8629.ngrok-free.app/_static/out/browser/serviceWorker.js. Expected: service-worker.js?v=4&vscode-resource-base-authority=vscode-resource.vscode-cdn.net&remoteAuthority=d362d25a8629.ngrok-free.app. Waiting for controllerchange.
+request.ts:44  POST https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery net::ERR_CONNECTION_RESET
+(anonymous) @ request.ts:44
+T @ request.ts:20
+(anonymous) @ requestService.ts:32
+c @ request.ts:72
+request @ requestService.ts:32
+request @ requestService.ts:28
+B @ extensionGalleryService.ts:962
+await in B
+z @ extensionGalleryService.ts:832
+getExtensions @ extensionGalleryService.ts:666
+checkForUpdates @ extensionsWorkbenchService.ts:1570
+await in checkForUpdates
+(anonymous) @ extensionsWorkbenchService.ts:1631
+queue @ async.ts:231
+(anonymous) @ async.ts:423
+(anonymous) @ async.ts:364
+Promise.then
+trigger @ async.ts:358
+trigger @ async.ts:423
+xb @ extensionsWorkbenchService.ts:1629
+gb @ extensionsWorkbenchService.ts:989
+fb @ extensionsWorkbenchService.ts:952
+await in fb
+Q @ extensionsWorkbenchService.ts:936
+j @ instantiationService.ts:119
+t @ instantiationService.ts:245
+s @ instantiationService.ts:234
+r @ instantiationService.ts:223
+q @ instantiationService.ts:163
+m @ instantiationService.ts:147
+j @ instantiationService.ts:97
+createInstance @ instantiationService.ts:85
+D @ contributions.ts:375
+p @ contributions.ts:343
+requestIdleCallback
+globalThis.requestIdleCallback.globalThis.cancelIdleCallback.e.$zh @ async.ts:1308
+e.$yh @ async.ts:1321
+C @ contributions.ts:360
+z @ contributions.ts:326
+(anonymous) @ contributions.ts:286
+Promise.then
+y @ contributions.ts:286
+start @ contributions.ts:254
+(anonymous) @ workbench.ts:165
+invokeFunction @ instantiationService.ts:68
+startup @ workbench.ts:149
+open @ web.main.ts:132
+await in open
+m @ web.factory.ts:62
+(anonymous) @ workbench.ts:569
+(anonymous) @ workbench.ts:612
+_invokeFactory @ loader.js:1139
+complete @ loader.js:1149
+_onModuleComplete @ loader.js:1765
+_resolve @ loader.js:1723
+defineModule @ loader.js:1373
+_ @ loader.js:1814
+(anonymous) @ fake:9
+(anonymous) @ fake:1
+log.ts:419  INFO Migrating global extension storage from augment.vscode-augment to Augment.vscode-augment...
+log.ts:419  INFO Migrated global extension storage from augment.vscode-augment to Augment.vscode-augment
+log.ts:419  INFO Migrating workspace extension storage from augment.vscode-augment to Augment.vscode-augment...
+log.ts:419  INFO Migrating global extension storage from pkief.material-icon-theme to PKief.material-icon-theme...
+log.ts:419  INFO Migrated global extension storage from pkief.material-icon-theme to PKief.material-icon-theme
+log.ts:419  INFO Migrating workspace extension storage from pkief.material-icon-theme to PKief.material-icon-theme...
+console.ts:137 [Extension Host] [TelemetryService] Initialized with PostHogClientProvider
+console.ts:137 [Extension Host] Cline environment: production
+console.ts:137 [Extension Host] Registered diff method: openDiff
+console.ts:137 [Extension Host] Registered diff method: getDocumentText
+console.ts:137 [Extension Host] Registered diff method: replaceText
+console.ts:137 [Extension Host] Registered diff method: scrollDiff
+console.ts:137 [Extension Host] Registered diff method: truncateDocument
+console.ts:137 [Extension Host] Registered diff method: saveDocument
+console.ts:137 [Extension Host] Registered diff method: closeAllDiffs
+console.ts:137 [Extension Host] Registered diff method: openMultiFileDiff
+console.ts:137 [Extension Host] Registered env method: clipboardWriteText
+console.ts:137 [Extension Host] Registered env method: clipboardReadText
+console.ts:137 [Extension Host] Registered env method: getMachineId
+console.ts:137 [Extension Host] Registered env method: getHostVersion
+console.ts:137 [Extension Host] Registered testing method: getWebviewHtml
+console.ts:137 [Extension Host] Registered watch method: subscribeToFile (streaming)
+console.ts:137 [Extension Host] Registered window method: showTextDocument
+console.ts:137 [Extension Host] Registered window method: showOpenDialogue
+console.ts:137 [Extension Host] Registered window method: showMessage
+console.ts:137 [Extension Host] Registered window method: showInputBox
+console.ts:137 [Extension Host] Registered window method: showSaveDialog
+console.ts:137 [Extension Host] Registered window method: openFile
+console.ts:137 [Extension Host] Registered window method: openSettings
+console.ts:137 [Extension Host] Registered window method: getOpenTabs
+console.ts:137 [Extension Host] Registered window method: getVisibleTabs
+console.ts:137 [Extension Host] Registered window method: getActiveEditor
+console.ts:137 [Extension Host] Registered workspace method: getWorkspacePaths
+console.ts:137 [Extension Host] Registered workspace method: saveOpenDocumentIfDirty
+console.ts:137 [Extension Host] Registered workspace method: getDiagnostics
+console.ts:137 [Extension Host] Registered workspace method: searchWorkspaceItems
+console.ts:137 [Extension Host] Registered workspace method: openProblemsPanel
+console.ts:137 [Extension Host] Registered workspace method: openInFileExplorerPanel
+mainThreadExtensionService.ts:113 Activating extension 'Augment.vscode-augment' failed: crypto is not defined.
+$onExtensionActivationError @ mainThreadExtensionService.ts:113
+S @ rpcProtocol.ts:458
+Q @ rpcProtocol.ts:443
+M @ rpcProtocol.ts:373
+L @ rpcProtocol.ts:299
+(anonymous) @ rpcProtocol.ts:161
+y @ event.ts:1156
+fire @ event.ts:1187
+fire @ ipc.net.ts:650
+z @ ipc.net.ts:1015
+(anonymous) @ ipc.net.ts:875
+y @ event.ts:1156
+fire @ event.ts:1187
+acceptChunk @ ipc.net.ts:394
+(anonymous) @ ipc.net.ts:350
+(anonymous) @ browserSocketFactory.ts:231
+y @ event.ts:1156
+fire @ event.ts:1187
+C.j.onload @ browserSocketFactory.ts:92
+FileReader
+u @ browserSocketFactory.ts:105
+C.s @ browserSocketFactory.ts:111
+console.ts:137 [Extension Host] Setting up vscode host providers...
+console.ts:137 [Extension Host] Migrating welcomeViewCompleted setting...
+console.ts:137 [Extension Host] Migration: Set welcomeViewCompleted to false based on existing API keys
+console.ts:137 [Extension Host] FileContextTracker: Processed 0 tasks, found 0 pending warnings, 0 orphaned, deleted 0, took 0ms
+console.ts:137 [Extension Host] Extension context was not provided to AuthService.getInstance, using default context
+w @ console.ts:137
+$logExtensionHostMessage @ mainThreadConsole.ts:39
+S @ rpcProtocol.ts:458
+Q @ rpcProtocol.ts:443
+M @ rpcProtocol.ts:373
+L @ rpcProtocol.ts:299
+(anonymous) @ rpcProtocol.ts:161
+y @ event.ts:1156
+fire @ event.ts:1187
+fire @ ipc.net.ts:650
+z @ ipc.net.ts:1015
+(anonymous) @ ipc.net.ts:875
+y @ event.ts:1156
+fire @ event.ts:1187
+acceptChunk @ ipc.net.ts:394
+(anonymous) @ ipc.net.ts:350
+(anonymous) @ browserSocketFactory.ts:231
+y @ event.ts:1156
+fire @ event.ts:1187
+C.j.onload @ browserSocketFactory.ts:92
+FileReader
+u @ browserSocketFactory.ts:105
+C.s @ browserSocketFactory.ts:111
+log.ts:419  INFO Error while migrating workspace file storage from 'augment.vscode-augment' to 'Augment.vscode-augment' File to move/copy does not exist
+log.ts:419  INFO Migrated workspace extension storage from augment.vscode-augment to Augment.vscode-augment
+log.ts:419  INFO Error while migrating workspace file storage from 'pkief.material-icon-theme' to 'PKief.material-icon-theme' File to move/copy does not exist
+log.ts:419  INFO Migrated workspace extension storage from pkief.material-icon-theme to PKief.material-icon-theme
+log.ts:439   ERR [Extension Host] No stored authentication credential found.
+console.ts:137 [Extension Host] No stored authentication credential found.
+w @ console.ts:137
+$logExtensionHostMessage @ mainThreadConsole.ts:39
+S @ rpcProtocol.ts:458
+Q @ rpcProtocol.ts:443
+M @ rpcProtocol.ts:373
+L @ rpcProtocol.ts:299
+(anonymous) @ rpcProtocol.ts:161
+y @ event.ts:1156
+fire @ event.ts:1187
+fire @ ipc.net.ts:650
+z @ ipc.net.ts:1015
+(anonymous) @ ipc.net.ts:875
+y @ event.ts:1156
+fire @ event.ts:1187
+acceptChunk @ ipc.net.ts:394
+(anonymous) @ ipc.net.ts:350
+(anonymous) @ browserSocketFactory.ts:231
+y @ event.ts:1156
+fire @ event.ts:1187
+C.j.onload @ browserSocketFactory.ts:92
+FileReader
+u @ browserSocketFactory.ts:105
+C.s @ browserSocketFactory.ts:111
+console.ts:137 [Extension Host] No user found after restoring auth token
+w @ console.ts:137
+$logExtensionHostMessage @ mainThreadConsole.ts:39
+S @ rpcProtocol.ts:458
+Q @ rpcProtocol.ts:443
+M @ rpcProtocol.ts:373
+L @ rpcProtocol.ts:299
+(anonymous) @ rpcProtocol.ts:161
+y @ event.ts:1156
+fire @ event.ts:1187
+fire @ ipc.net.ts:650
+z @ ipc.net.ts:1015
+(anonymous) @ ipc.net.ts:875
+y @ event.ts:1156
+fire @ event.ts:1187
+acceptChunk @ ipc.net.ts:394
+(anonymous) @ ipc.net.ts:350
+(anonymous) @ browserSocketFactory.ts:231
+y @ event.ts:1156
+fire @ event.ts:1187
+C.j.onload @ browserSocketFactory.ts:92
+FileReader
+u @ browserSocketFactory.ts:105
+C.s @ browserSocketFactory.ts:111
+console.ts:137 [Extension Host] [INFO] 2025-08-25T17:32:39.162Z - Translations initialized.
+console.ts:137 [Extension Host] [INFO] 2025-08-25T17:32:39.234Z - Extension activated!
+index.html?id=29f640b1-b5f5-48d8-882d-b2e606045d23&origin=fd5f74f6-c7a8-4014-828a-b470f69b0b5c&swVe…:1 Refused to load the script 'http://localhost:8097/' because it violates the following Content Security Policy directive: "script-src 'nonce-3s0dZogoY2hJvRQnUKuTeuZzPXym15vL' 'unsafe-eval'". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback.
+
+index.js:1582 Extension: ClineAuthContext: user updated: undefined
+console.ts:137 [Extension Host] Subscribing to authStatusUpdate
+console.ts:137 [Extension Host] [DEBUG] Registered request: c5d49dc7-5f1c-431b-853b-a29d5f25fc42
+console.ts:137 [Extension Host] [DEBUG] set up mcpButtonClicked subscription for controller 2cb9feda-13a4-423b-aae5-9203f9d60d68
+console.ts:137 [Extension Host] [DEBUG] Registered request: a88752d9-e119-4b73-bfed-55a8e2ab723c
+console.ts:137 [Extension Host] [DEBUG] set up history button subscription for SIDEBAR webview
+console.ts:137 [Extension Host] [DEBUG] Registered request: 897f4c62-da76-4dee-94f6-ff1f7d659ca1
+console.ts:137 [Extension Host] [DEBUG] set up chatButtonClicked subscription for controller 2cb9feda-13a4-423b-aae5-9203f9d60d68
+console.ts:137 [Extension Host] [DEBUG] Registered request: 8ecb7f63-22dd-405d-bf8e-a859143de103
+console.ts:137 [Extension Host] [DEBUG] set up didBecomeVisible subscription for controller 2cb9feda-13a4-423b-aae5-9203f9d60d68
+console.ts:137 [Extension Host] [DEBUG] Registered request: 1dfafef1-17a5-45a0-ad5c-90c071f701ce
+console.ts:137 [Extension Host] [DEBUG] Registered request: eb6111f4-9435-44ae-809c-442f3327f4ec
+console.ts:137 [Extension Host] [DEBUG] set up settings button subscription for SIDEBAR webview
+console.ts:137 [Extension Host] [DEBUG] Registered request: e89cc4f0-3d6b-43c0-b061-15a042e6cce7
+console.ts:137 [Extension Host] [DEBUG] Registered request: 091d4c67-555a-4101-a48f-cb11872d401f
+console.ts:137 [Extension Host] [DEBUG] Registered request: f6478de1-018e-4371-a5d9-5e0759dd55dc
+console.ts:137 [Extension Host] [DEBUG] Registered request: d60e5c61-eb37-45cc-889c-8c2afa6774dc
+console.ts:137 [Extension Host] [DEBUG] set up OpenRouter models subscription
+console.ts:137 [Extension Host] [DEBUG] Registered request: b1ea452c-df03-4881-9365-76fe508e08ae
+console.ts:137 [Extension Host] === refreshBasetenModels called ===
+console.ts:137 [Extension Host] [DEBUG] Registered request: 4dcd5cef-5856-4f96-9a0d-5c00c174541b
+console.ts:137 [Extension Host] [DEBUG] Registered request: bcea837f-7877-41a6-a75e-914d6870c085
+console.ts:137 [Extension Host] [DEBUG] Registered request: 617a488b-576f-47b6-b92a-789757a8eec6
+index.js:1596 [DEBUG] returning new state in ESC
+index.js:1596 [DEBUG] ended "got subscribed state"
+console.ts:137 [Extension Host] No Groq API key found, using static models as fallback
+console.ts:137 [Extension Host] No Baseten API key found, using static models as fallback
+index.js:1596 [DEBUG] Webview initialization completed via gRPC
+index.js:1596 [DEBUG] Received OpenRouter models update from gRPC stream
+index.js:1596 [DEBUG] Received theme update from gRPC stream
+log.ts:419  INFO Extension host (Remote) is unresponsive.
+ [DEBUG] Received MCP marketplace catalog update from gRPC stream
+ [Extension Host] Vercel AI Gateway models fetched and saved {"alibaba/qwen-3-14b":{"maxTokens":16384,"contextWindow":40960,"supportsImages":true,"supportsPromptCache":false,"inputPrice":0.06,"outputPrice":0.24,"cacheWritesPrice":0,"cacheReadsPrice":0,"description":"Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensi
+ [Extension Host] [DEBUG] No active state subscription for controller 2cb9feda-13a4-423b-aae5-9203f9d60d68
+ [Extension Host] [DEBUG] No active state subscription for controller 2cb9feda-13a4-423b-aae5-9203f9d60d68
+ [Extension Host] OpenRouter models fetched and saved {"deepseek/deepseek-chat-v3.1":{"maxTokens":0,"contextWindow":163840,"supportsImages":false,"supportsPromptCache":false,"inputPrice":0.19999999999999998,"outputPrice":0.7999999999999999,"description":"DeepSeek-V3.1 is a large hybrid reasoning model (671B parameters, 37B active) that supports both th
+ [Extension Host] [DEBUG] Registered request: 67fe9a4d-d6fb-49d6-a018-21103ff8ce25
+  INFO Extension host (Remote) is responsive.
+ [Extension Host] [DEBUG] sending OpenRouter models event
+  WARN [mainThreadStorage] large extension state detected (extensionId: saoudrizwan.claude-dev, global: true): 1297.57421875kb. Consider to use 'storageUri' or 'globalStorageUri' to store this data on disk instead.
