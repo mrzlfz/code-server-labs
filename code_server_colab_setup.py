@@ -1920,6 +1920,9 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
     def _force_restart_with_env(self):
         """Force restart Code Server with current environment variables."""
+        # Clear terminal to avoid control character issues
+        self._clear_terminal()
+
         print("\n🔄 Force Restart with Environment Variables")
 
         # Get current EXTENSIONS_GALLERY before restart
@@ -1953,30 +1956,25 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         port = self.config.get("code_server.port", 8080)
         password = self.config.get("code_server.password", "colab123")
 
-        # Prepare environment with EXTENSIONS_GALLERY
+        # Prepare environment with EXTENSIONS_GALLERY and PASSWORD
         env = os.environ.copy()
         env['EXTENSIONS_GALLERY'] = extensions_gallery
+        env['PASSWORD'] = password  # Use environment variable instead of --password
 
         # Start Code Server with explicit environment
         try:
-            cmd = [
-                str(BIN_DIR / "code-server"),
-                "--bind-addr", f"0.0.0.0:{port}",
-                "--auth", "password",
-                "--password", password,
-                "--disable-telemetry",
-                "/content"
-            ]
+            # Use same approach as regular start_code_server but with custom environment
+            code_server_bin = BIN_DIR / "code-server"
 
-            print(f"🚀 Starting Code Server with command: {' '.join(cmd[:3])}...")
+            print(f"🚀 Starting Code Server with Microsoft Marketplace environment...")
 
-            # Start in background
+            # Start in background (similar to regular start_code_server)
             process = subprocess.Popen(
-                cmd,
+                [str(code_server_bin)],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                cwd="/content"
+                start_new_session=True
             )
 
             # Store process info
