@@ -792,8 +792,8 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self.logger.error(f"Config creation failed: {e}")
 
     def start_code_server(self):
-        """Start Code Server process."""
-        print("▶️  Starting Code Server...")
+        """Start Code Server process with default Hybrid Registry (Microsoft + Open VSX)."""
+        print("▶️  Starting Code Server with Hybrid Registry...")
 
         try:
             # Check if already running
@@ -807,12 +807,21 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 print("❌ Code Server is not installed. Please install it first.")
                 return
 
-            # Start Code Server in background
-            print("🚀 Starting Code Server process...")
+            # Setup default hybrid registry configuration
+            self._setup_default_hybrid_registry()
 
-            # Prepare environment
+            # Start Code Server in background
+            print("🚀 Starting Code Server with Hybrid Registry...")
+            print("🏢 Primary Registry: Microsoft Marketplace (UI search/discovery)")
+            print("🌐 Fallback Registry: Open VSX (automatic fallback)")
+
+            # Prepare environment with Microsoft Marketplace as primary
             env = os.environ.copy()
-            env["EXTENSIONS_GALLERY"] = '{"serviceUrl": "https://open-vsx.org/vscode/gallery", "itemUrl": "https://open-vsx.org/vscode/item"}'
+            env["EXTENSIONS_GALLERY"] = '{"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery", "itemUrl": "https://marketplace.visualstudio.com/items", "resourceUrlTemplate": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{name}/{version}/vspackage"}'
+
+            # Set password via environment variable
+            password = self.config.get("code_server.password", "colab123")
+            env['PASSWORD'] = password
 
             # Start process
             self.code_server_process = subprocess.Popen(
@@ -827,20 +836,57 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             time.sleep(3)
 
             if self._is_code_server_running():
-                print("✅ Code Server started successfully!")
+                print("✅ Code Server started successfully with Hybrid Registry!")
+                print("\n🎯 Hybrid Registry Features:")
+                print("   • UI Extensions tab: Search Microsoft Marketplace")
+                print("   • Automatic fallback: Open VSX for missing extensions")
+                print("   • Enhanced extension manager: Menu 7 for advanced features")
+                print("   • Best of both worlds: Complete extension ecosystem")
 
                 # Setup ngrok tunnel if configured
                 if self.config.get("ngrok.auth_token"):
                     self._start_ngrok_tunnel()
                 else:
-                    print("🌐 Access Code Server at: http://127.0.0.1:8080")
-                    print("🔑 Password:", self.config.get("code_server.password"))
+                    print(f"\n🌐 Access Code Server at: http://127.0.0.1:8080")
+                    print(f"🔑 Password: {password}")
             else:
                 print("❌ Failed to start Code Server")
 
         except Exception as e:
             self.logger.error(f"Failed to start Code Server: {e}")
             print(f"❌ Failed to start Code Server: {e}")
+
+    def _setup_default_hybrid_registry(self):
+        """Setup default hybrid registry configuration automatically."""
+        # Enable hybrid mode by default
+        self.config.set("extension_registry.hybrid_mode", True)
+        self.config.set("extension_registry.primary", "microsoft")
+        self.config.set("extension_registry.fallback", "openvsx")
+
+        # Setup hybrid config
+        hybrid_config = {
+            "primary_registry": {
+                "name": "Microsoft Marketplace",
+                "serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+                "itemUrl": "https://marketplace.visualstudio.com/items",
+                "api_url": "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
+            },
+            "fallback_registry": {
+                "name": "Open VSX",
+                "serviceUrl": "https://open-vsx.org/vscode/gallery",
+                "itemUrl": "https://open-vsx.org/vscode/item",
+                "api_url": "https://open-vsx.org/api/-/search"
+            },
+            "enabled": True,
+            "auto_fallback": True
+        }
+
+        # Save hybrid config
+        self.config.set("extension_registry.hybrid_config", hybrid_config)
+
+        # Update shell profile for persistence
+        microsoft_gallery = '{"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery", "itemUrl": "https://marketplace.visualstudio.com/items", "resourceUrlTemplate": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{name}/{version}/vspackage"}'
+        self._update_shell_profile_registry(microsoft_gallery)
 
     def stop_code_server(self):
         """Stop Code Server process."""
@@ -1202,9 +1248,10 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             print("❌ Reset cancelled")
 
     def manage_extensions(self):
-        """Manage VS Code extensions."""
+        """Manage VS Code extensions with built-in Hybrid Registry support."""
         print("📦 Extension Management")
-        print("=" * 25)
+        print("🔄 Hybrid Registry: Microsoft Marketplace + Open VSX")
+        print("=" * 50)
 
         while True:
             print("\n📋 Extension Options:")
@@ -1213,12 +1260,14 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             print("3. List Installed Extensions")
             print("4. Uninstall Extension")
             print("5. Update All Extensions")
-            print("6. Download Extension Info")
-            print("7. Check Extension Compatibility")
-            print("8. Clear Extension Cache")
+            print("6. Hybrid Search (Both Registries)")
+            print("7. Install from Specific Registry")
+            print("8. Download Extension Info")
+            print("9. Check Extension Compatibility")
+            print("10. Clear Extension Cache")
             print("0. Back to Main Menu")
 
-            choice = input("\n👉 Select option (0-8): ").strip()
+            choice = input("\n👉 Select option (0-10): ").strip()
 
             if choice == "1":
                 self._install_popular_extensions()
@@ -1231,10 +1280,14 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             elif choice == "5":
                 self._update_extensions()
             elif choice == "6":
-                self._show_extension_info()
+                self._hybrid_search_extensions()
             elif choice == "7":
-                self._check_extension_compatibility()
+                self._install_from_specific_registry()
             elif choice == "8":
+                self._show_extension_info()
+            elif choice == "9":
+                self._check_extension_compatibility()
+            elif choice == "10":
                 self._clear_extension_cache()
             elif choice == "0":
                 break
@@ -1593,17 +1646,22 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         print("   - Use your own marketplace")
         print("   - Enterprise/private registries")
         print()
-        print("4. Debug Current Configuration")
+        print("4. Hybrid Registry (Microsoft + Open VSX)")
+        print("   - Microsoft Marketplace as primary")
+        print("   - Open VSX as fallback")
+        print("   - Best of both ecosystems")
+        print()
+        print("5. Debug Current Configuration")
         print("   - Verify environment variables")
         print("   - Check Code Server process")
         print()
-        print("5. Force Restart with Environment")
+        print("6. Force Restart with Environment")
         print("   - Restart Code Server with current env vars")
         print("   - Fix registry not applying issue")
         print()
         print("0. Back to Main Menu")
 
-        choice = input("\n👉 Select registry (0-5): ").strip()
+        choice = input("\n👉 Select registry (0-6): ").strip()
 
         if choice == "1":
             self._configure_openvsx_registry()
@@ -1612,8 +1670,10 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         elif choice == "3":
             self._configure_custom_registry()
         elif choice == "4":
-            self._debug_registry_configuration()
+            self._configure_hybrid_registry()
         elif choice == "5":
+            self._debug_registry_configuration()
+        elif choice == "6":
             self._force_restart_with_env()
         elif choice == "0":
             return
@@ -1777,6 +1837,364 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self.logger.error(f"Failed to update shell profile: {e}")
             print(f"⚠️  Warning: Could not update shell profile: {e}")
             print("💡 You may need to set EXTENSIONS_GALLERY manually")
+
+    def _configure_hybrid_registry(self):
+        """Configure hybrid registry (Microsoft Marketplace + Open VSX fallback)."""
+        print("\n🔄 Configuring Hybrid Registry (Microsoft + Open VSX)")
+        print("💡 This configuration provides the best of both ecosystems:")
+        print("   • Microsoft Marketplace as primary (UI search/discovery)")
+        print("   • Open VSX as fallback for missing extensions")
+        print("   • Enhanced extension manager with dual registry support")
+
+        confirm = input("\n🔄 Configure hybrid registry? (y/N): ").strip().lower()
+        if confirm != 'y':
+            return
+
+        # Set Microsoft Marketplace as primary registry
+        print("\n📋 Step 1: Setting Microsoft Marketplace as primary registry...")
+
+        microsoft_gallery = {
+            "serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+            "itemUrl": "https://marketplace.visualstudio.com/items",
+            "resourceUrlTemplate": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{name}/{version}/vspackage"
+        }
+
+        import json
+        gallery_json = json.dumps(microsoft_gallery)
+
+        # Set environment variable for current session
+        os.environ['EXTENSIONS_GALLERY'] = gallery_json
+
+        # Update shell profile for persistence
+        self._update_shell_profile_registry(gallery_json)
+
+        # Set hybrid mode flag
+        self.config.set("extension_registry.hybrid_mode", True)
+        self.config.set("extension_registry.primary", "microsoft")
+        self.config.set("extension_registry.fallback", "openvsx")
+
+        print("✅ Microsoft Marketplace configured as primary registry")
+
+        # Configure enhanced extension manager
+        print("\n📋 Step 2: Configuring enhanced extension manager...")
+        self._setup_hybrid_extension_manager()
+
+        print("✅ Hybrid registry configuration completed!")
+        print("\n🎯 Features enabled:")
+        print("   • UI search uses Microsoft Marketplace")
+        print("   • Fallback installation from Open VSX")
+        print("   • Enhanced extension manager (Menu 7)")
+        print("   • Dual registry search capabilities")
+
+        restart = input("\n🔄 Force restart Code Server now? (y/N): ").strip().lower()
+        if restart == 'y':
+            print("🔄 Restarting with hybrid registry configuration...")
+            self._force_restart_with_env()
+        else:
+            print("💡 Remember to restart Code Server to apply changes!")
+            print("   Use Menu: 8 → 6 (Force Restart with Environment)")
+
+    def _setup_hybrid_extension_manager(self):
+        """Setup enhanced extension manager for hybrid registry support."""
+        print("🔧 Setting up enhanced extension manager...")
+
+        # Create extension manager config
+        hybrid_config = {
+            "primary_registry": {
+                "name": "Microsoft Marketplace",
+                "serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+                "itemUrl": "https://marketplace.visualstudio.com/items",
+                "api_url": "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
+            },
+            "fallback_registry": {
+                "name": "Open VSX",
+                "serviceUrl": "https://open-vsx.org/vscode/gallery",
+                "itemUrl": "https://open-vsx.org/vscode/item",
+                "api_url": "https://open-vsx.org/api/-/search"
+            },
+            "enabled": True,
+            "auto_fallback": True
+        }
+
+        # Save hybrid config
+        self.config.set("extension_registry.hybrid_config", hybrid_config)
+
+        print("✅ Enhanced extension manager configured")
+        print("💡 Access via Menu: 7 → Enhanced Extension Management")
+
+    def search_extension_hybrid(self, extension_name):
+        """Search extension in both registries."""
+        print(f"\n🔍 Searching for '{extension_name}' in hybrid registries...")
+
+        results = {
+            "microsoft": [],
+            "openvsx": [],
+            "found": False
+        }
+
+        # Search in Microsoft Marketplace
+        print("📋 Searching Microsoft Marketplace...")
+        try:
+            microsoft_results = self._search_microsoft_marketplace(extension_name)
+            if microsoft_results:
+                results["microsoft"] = microsoft_results
+                results["found"] = True
+                print(f"✅ Found {len(microsoft_results)} results in Microsoft Marketplace")
+        except Exception as e:
+            print(f"⚠️  Microsoft Marketplace search failed: {e}")
+
+        # Search in Open VSX
+        print("📋 Searching Open VSX Registry...")
+        try:
+            openvsx_results = self._search_openvsx_registry(extension_name)
+            if openvsx_results:
+                results["openvsx"] = openvsx_results
+                results["found"] = True
+                print(f"✅ Found {len(openvsx_results)} results in Open VSX")
+        except Exception as e:
+            print(f"⚠️  Open VSX search failed: {e}")
+
+        return results
+
+    def _search_microsoft_marketplace(self, extension_name):
+        """Search Microsoft Marketplace for extensions."""
+        try:
+            import requests
+
+            # Microsoft Marketplace API endpoint
+            api_url = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
+
+            # Search payload
+            payload = {
+                "filters": [{
+                    "criteria": [{
+                        "filterType": 8,
+                        "value": "Microsoft.VisualStudio.Code"
+                    }, {
+                        "filterType": 10,
+                        "value": extension_name
+                    }],
+                    "pageNumber": 1,
+                    "pageSize": 10,
+                    "sortBy": 0,
+                    "sortOrder": 0
+                }],
+                "assetTypes": [],
+                "flags": 914
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json;api-version=3.0-preview.1"
+            }
+
+            response = requests.post(api_url, json=payload, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                extensions = []
+
+                if "results" in data and len(data["results"]) > 0:
+                    for ext in data["results"][0].get("extensions", []):
+                        extensions.append({
+                            "name": ext.get("displayName", ""),
+                            "id": ext.get("extensionName", ""),
+                            "publisher": ext.get("publisher", {}).get("displayName", ""),
+                            "version": ext.get("versions", [{}])[0].get("version", ""),
+                            "description": ext.get("shortDescription", ""),
+                            "registry": "microsoft"
+                        })
+
+                return extensions
+            else:
+                print(f"⚠️  Microsoft API returned status: {response.status_code}")
+                return []
+
+        except Exception as e:
+            print(f"❌ Microsoft Marketplace search error: {e}")
+            return []
+
+    def _search_openvsx_registry(self, extension_name):
+        """Search Open VSX Registry for extensions."""
+        try:
+            import requests
+
+            # Open VSX API endpoint
+            api_url = f"https://open-vsx.org/api/-/search?query={extension_name}&size=10"
+
+            headers = {
+                "Accept": "application/json"
+            }
+
+            response = requests.get(api_url, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                extensions = []
+
+                for ext in data.get("extensions", []):
+                    extensions.append({
+                        "name": ext.get("displayName", ""),
+                        "id": ext.get("name", ""),
+                        "publisher": ext.get("namespace", ""),
+                        "version": ext.get("version", ""),
+                        "description": ext.get("description", ""),
+                        "registry": "openvsx"
+                    })
+
+                return extensions
+            else:
+                print(f"⚠️  Open VSX API returned status: {response.status_code}")
+                return []
+
+        except Exception as e:
+            print(f"❌ Open VSX search error: {e}")
+            return []
+
+    def _hybrid_search_extensions(self):
+        """Search extensions in both registries (hybrid mode)."""
+        print("\n🔍 Hybrid Extension Search (Microsoft + Open VSX)")
+
+        extension_name = input("Extension name or keyword: ").strip()
+        if not extension_name:
+            return
+
+        results = self.search_extension_hybrid(extension_name)
+
+        if not results["found"]:
+            print(f"❌ No extensions found for '{extension_name}' in either registry")
+            return
+
+        print(f"\n📋 Search Results for '{extension_name}':")
+
+        # Display Microsoft Marketplace results
+        if results["microsoft"]:
+            print(f"\n🏢 Microsoft Marketplace ({len(results['microsoft'])} results):")
+            for i, ext in enumerate(results["microsoft"], 1):
+                print(f"  {i}. {ext['name']} ({ext['publisher']}.{ext['id']})")
+                print(f"     Version: {ext['version']}")
+                print(f"     Description: {ext['description'][:80]}...")
+
+        # Display Open VSX results
+        if results["openvsx"]:
+            print(f"\n🌐 Open VSX Registry ({len(results['openvsx'])} results):")
+            for i, ext in enumerate(results["openvsx"], 1):
+                print(f"  {i}. {ext['name']} ({ext['publisher']}.{ext['id']})")
+                print(f"     Version: {ext['version']}")
+                print(f"     Description: {ext['description'][:80]}...")
+
+        # Offer installation
+        install = input(f"\n📦 Install an extension? (y/N): ").strip().lower()
+        if install == 'y':
+            ext_id = input("Extension ID to install (publisher.name): ").strip()
+            if ext_id:
+                self._install_extension_hybrid(ext_id)
+
+    def _install_extension_hybrid(self, ext_id):
+        """Install extension using hybrid approach (try Microsoft first, fallback to Open VSX)."""
+        print(f"\n📦 Installing {ext_id} using hybrid approach...")
+
+        # Try Microsoft Marketplace first (since it's primary)
+        print("🏢 Trying Microsoft Marketplace...")
+        success = self._install_extension_direct(ext_id)
+
+        if success:
+            print(f"✅ Extension {ext_id} installed from Microsoft Marketplace!")
+            return True
+
+        # Fallback to Open VSX
+        print("🌐 Falling back to Open VSX Registry...")
+        env = os.environ.copy()
+        env['SERVICE_URL'] = 'https://open-vsx.org/vscode/gallery'
+        env['ITEM_URL'] = 'https://open-vsx.org/vscode/item'
+
+        success, output = SystemUtils.run_command([
+            str(BIN_DIR / "code-server"),
+            "--install-extension", ext_id
+        ], env=env)
+
+        if success:
+            print(f"✅ Extension {ext_id} installed from Open VSX!")
+            return True
+        else:
+            print(f"❌ Failed to install {ext_id} from both registries")
+            print(f"   Error: {output}")
+            return False
+
+    def _install_extension_direct(self, ext_id):
+        """Install extension directly using current registry configuration."""
+        try:
+            success, output = SystemUtils.run_command([
+                str(BIN_DIR / "code-server"),
+                "--install-extension", ext_id
+            ])
+            return success
+        except Exception:
+            return False
+
+    def _install_from_specific_registry(self):
+        """Install extension from a specific registry."""
+        print("\n📦 Install from Specific Registry")
+
+        print("📋 Available Registries:")
+        print("1. Microsoft Marketplace")
+        print("2. Open VSX Registry")
+        print("0. Cancel")
+
+        choice = input("\n👉 Select registry (0-2): ").strip()
+
+        if choice == "1":
+            self._install_from_microsoft_marketplace()
+        elif choice == "2":
+            self._install_from_openvsx_registry()
+        elif choice == "0":
+            return
+        else:
+            print("❌ Invalid option")
+
+    def _install_from_microsoft_marketplace(self):
+        """Install extension specifically from Microsoft Marketplace."""
+        print("\n🏢 Install from Microsoft Marketplace")
+
+        ext_id = input("Extension ID (publisher.name): ").strip()
+        if not ext_id:
+            return
+
+        print(f"📦 Installing {ext_id} from Microsoft Marketplace...")
+
+        # Try direct installation first (uses current EXTENSIONS_GALLERY which is Microsoft)
+        success = self._install_extension_direct(ext_id)
+
+        if success:
+            print(f"✅ Extension {ext_id} installed successfully from Microsoft Marketplace!")
+        else:
+            print(f"❌ Failed to install {ext_id} from Microsoft Marketplace")
+            print("💡 Extension may not be available in Microsoft Marketplace")
+
+    def _install_from_openvsx_registry(self):
+        """Install extension specifically from Open VSX Registry."""
+        print("\n🌐 Install from Open VSX Registry")
+
+        ext_id = input("Extension ID (publisher.name): ").strip()
+        if not ext_id:
+            return
+
+        print(f"📦 Installing {ext_id} from Open VSX Registry...")
+
+        # Use Open VSX environment variables for installation
+        env = os.environ.copy()
+        env['SERVICE_URL'] = 'https://open-vsx.org/vscode/gallery'
+        env['ITEM_URL'] = 'https://open-vsx.org/vscode/item'
+
+        success, output = SystemUtils.run_command([
+            str(BIN_DIR / "code-server"),
+            "--install-extension", ext_id
+        ], env=env)
+
+        if success:
+            print(f"✅ Extension {ext_id} installed successfully from Open VSX!")
+        else:
+            print(f"❌ Failed to install {ext_id} from Open VSX: {output}")
 
     def _debug_registry_configuration(self):
         """Debug extension registry configuration."""
