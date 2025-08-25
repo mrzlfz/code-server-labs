@@ -1624,34 +1624,49 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             print(f"❌ Failed to clear cache: {e}")
 
     def configure_extension_registry(self):
-        """Configure extension registry (Open VSX vs Microsoft Marketplace)."""
-        print("\n🏪 Extension Registry Configuration")
+        """Advanced registry settings - Override default hybrid registry if needed."""
+        print("\n🔧 Advanced Registry Settings")
+        print("💡 Note: Hybrid Registry (Microsoft + Open VSX) is now DEFAULT")
+        print("   Use this menu only if you need to override the default configuration")
 
         # Get current registry configuration
         current_registry = self._get_current_registry()
-        print(f"📋 Current Registry: {current_registry}")
+        print(f"\n📋 Current Registry: {current_registry}")
 
-        print("\n📋 Available Registries:")
-        print("1. Open VSX Registry (Default)")
-        print("   - Open source extensions")
+        # Show hybrid registry status
+        hybrid_mode = self.config.get("extension_registry.hybrid_mode", True)
+        if hybrid_mode:
+            print("🔄 Hybrid Mode: ✅ ACTIVE (Default)")
+            print("   🏢 Primary: Microsoft Marketplace (UI search)")
+            print("   🌐 Fallback: Open VSX (automatic)")
+        else:
+            print("🔄 Hybrid Mode: ❌ DISABLED (Override active)")
+
+        print("\n📋 Registry Override Options:")
+        print("1. Keep Default Hybrid Registry (Recommended)")
+        print("   - Microsoft Marketplace + Open VSX")
+        print("   - Best of both ecosystems")
+        print("   - No action needed")
+        print()
+        print("2. Override to Open VSX Only")
+        print("   - Open source extensions only")
         print("   - Community maintained")
         print("   - No licensing restrictions")
         print()
-        print("2. Microsoft Visual Studio Marketplace")
+        print("3. Override to Microsoft Marketplace Only")
         print("   - Full Microsoft extension catalog")
         print("   - Includes proprietary extensions")
         print("   - May have licensing restrictions")
         print()
-        print("3. Custom Registry")
+        print("4. Custom Registry Override")
         print("   - Use your own marketplace")
         print("   - Enterprise/private registries")
         print()
-        print("4. Hybrid Registry (Microsoft + Open VSX)")
-        print("   - Microsoft Marketplace as primary")
-        print("   - Open VSX as fallback")
-        print("   - Best of both ecosystems")
+        print("5. Reset to Default Hybrid Registry")
+        print("   - Restore Microsoft + Open VSX hybrid")
+        print("   - Remove any overrides")
         print()
-        print("5. Debug Current Configuration")
+        print("6. Debug Current Configuration")
         print("   - Verify environment variables")
         print("   - Check Code Server process")
         print()
@@ -1661,24 +1676,83 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         print()
         print("0. Back to Main Menu")
 
-        choice = input("\n👉 Select registry (0-6): ").strip()
+        choice = input("\n👉 Select option (0-6): ").strip()
 
         if choice == "1":
-            self._configure_openvsx_registry()
+            print("✅ Keeping default hybrid registry - no action needed!")
+            print("🔄 Hybrid Registry remains active (Microsoft + Open VSX)")
         elif choice == "2":
-            self._configure_microsoft_registry()
+            self._override_to_openvsx_only()
         elif choice == "3":
-            self._configure_custom_registry()
+            self._override_to_microsoft_only()
         elif choice == "4":
-            self._configure_hybrid_registry()
+            self._configure_custom_registry()
         elif choice == "5":
-            self._debug_registry_configuration()
+            self._reset_to_default_hybrid()
         elif choice == "6":
-            self._force_restart_with_env()
+            self._debug_registry_configuration()
         elif choice == "0":
             return
         else:
             print("❌ Invalid option")
+
+    def _override_to_openvsx_only(self):
+        """Override default hybrid to Open VSX only."""
+        print("\n🌐 Override to Open VSX Only")
+        print("⚠️  This will disable the default hybrid registry")
+        print("💡 You will lose access to Microsoft Marketplace extensions")
+
+        confirm = input("\n🔄 Override to Open VSX only? (y/N): ").strip().lower()
+        if confirm != 'y':
+            return
+
+        # Disable hybrid mode
+        self.config.set("extension_registry.hybrid_mode", False)
+
+        # Configure Open VSX
+        openvsx_gallery = '{"serviceUrl": "https://open-vsx.org/vscode/gallery", "itemUrl": "https://open-vsx.org/vscode/item"}'
+        os.environ['EXTENSIONS_GALLERY'] = openvsx_gallery
+        self._update_shell_profile_registry(openvsx_gallery)
+
+        print("✅ Registry overridden to Open VSX only")
+        print("💡 Restart Code Server to apply changes")
+
+    def _override_to_microsoft_only(self):
+        """Override default hybrid to Microsoft Marketplace only."""
+        print("\n🏢 Override to Microsoft Marketplace Only")
+        print("⚠️  This will disable the default hybrid registry")
+        print("💡 You will lose automatic fallback to Open VSX")
+
+        confirm = input("\n🔄 Override to Microsoft only? (y/N): ").strip().lower()
+        if confirm != 'y':
+            return
+
+        # Disable hybrid mode
+        self.config.set("extension_registry.hybrid_mode", False)
+
+        # Configure Microsoft Marketplace
+        microsoft_gallery = '{"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery", "itemUrl": "https://marketplace.visualstudio.com/items", "resourceUrlTemplate": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{name}/{version}/vspackage"}'
+        os.environ['EXTENSIONS_GALLERY'] = microsoft_gallery
+        self._update_shell_profile_registry(microsoft_gallery)
+
+        print("✅ Registry overridden to Microsoft Marketplace only")
+        print("💡 Restart Code Server to apply changes")
+
+    def _reset_to_default_hybrid(self):
+        """Reset to default hybrid registry."""
+        print("\n🔄 Reset to Default Hybrid Registry")
+        print("✅ This will restore Microsoft Marketplace + Open VSX hybrid")
+
+        confirm = input("\n🔄 Reset to default hybrid registry? (y/N): ").strip().lower()
+        if confirm != 'y':
+            return
+
+        # Re-enable hybrid mode
+        self._setup_default_hybrid_registry()
+
+        print("✅ Registry reset to default hybrid configuration")
+        print("🔄 Hybrid Registry: Microsoft Marketplace + Open VSX")
+        print("💡 Restart Code Server to apply changes")
 
     def _get_current_registry(self) -> str:
         """Get current extension registry configuration."""
