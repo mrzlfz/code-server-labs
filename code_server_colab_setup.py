@@ -99,7 +99,20 @@ DEFAULT_CONFIG = {
             "bradlc.vscode-tailwindcss",
             "esbenp.prettier-vscode"
         ],
-        "custom": []
+        "custom": [],
+        "microsoft_extensions": [
+            "ms-python.python",
+            "ms-python.vscode-pylance",
+            "ms-toolsai.jupyter",
+            "ms-vscode.vscode-json",
+            "ms-vscode.theme-tomorrow-night-blue",
+            "ms-vscode.vscode-typescript-next",
+            "ms-vscode.cpptools",
+            "ms-dotnettools.csharp",
+            "ms-vscode.powershell"
+        ],
+        "fallback_registry": "https://open-vsx.org/vscode/gallery",
+        "microsoft_marketplace": "https://marketplace.visualstudio.com/_apis/public/gallery"
     },
     "colab": {
         "auto_detect": True,
@@ -202,7 +215,7 @@ class ConfigManager:
 
 class SystemUtils:
     """System utilities and environment detection."""
-    
+
     @staticmethod
     def is_colab() -> bool:
         """Detect if running in Google Colab."""
@@ -211,7 +224,7 @@ class SystemUtils:
             return True
         except ImportError:
             return False
-    
+
     @staticmethod
     def get_system_info() -> Dict:
         """Get system information."""
@@ -222,16 +235,16 @@ class SystemUtils:
             "home_dir": str(Path.home()),
             "cwd": os.getcwd()
         }
-        
+
         if PSUTIL_AVAILABLE:
             info.update({
                 "cpu_count": psutil.cpu_count(),
                 "memory_total": psutil.virtual_memory().total,
                 "disk_free": psutil.disk_usage('/').free
             })
-        
+
         return info
-    
+
     @staticmethod
     def install_package(package: str) -> bool:
         """Install Python package using pip."""
@@ -242,16 +255,16 @@ class SystemUtils:
             return True
         except subprocess.CalledProcessError:
             return False
-    
+
     @staticmethod
     def run_command(command: List[str], capture_output: bool = True) -> Tuple[bool, str]:
         """Run system command and return success status and output."""
         try:
             if capture_output:
                 result = subprocess.run(
-                    command, 
-                    capture_output=True, 
-                    text=True, 
+                    command,
+                    capture_output=True,
+                    text=True,
                     check=True
                 )
                 return True, result.stdout
@@ -261,6 +274,189 @@ class SystemUtils:
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if hasattr(e, 'stderr') and e.stderr else str(e)
             return False, error_msg
+
+class ExtensionManager:
+    """Enhanced extension management with Microsoft Marketplace support."""
+
+    def __init__(self, config_manager, logger):
+        self.config = config_manager
+        self.logger = logger
+        self.microsoft_extensions = self.config.get("extensions.microsoft_extensions", [])
+        self.fallback_registry = self.config.get("extensions.fallback_registry")
+        self.microsoft_marketplace = self.config.get("extensions.microsoft_marketplace")
+
+    def is_microsoft_extension(self, extension_id: str) -> bool:
+        """Check if extension is from Microsoft."""
+        return extension_id.startswith("ms-") or extension_id in self.microsoft_extensions
+
+    def get_extension_info(self, extension_id: str) -> Optional[Dict]:
+        """Get extension information from marketplace."""
+        try:
+            publisher, package = extension_id.split('.', 1)
+
+            # Try Microsoft Marketplace first for Microsoft extensions
+            if self.is_microsoft_extension(extension_id):
+                return self._get_microsoft_extension_info(publisher, package)
+
+            # Fallback to Open VSX for other extensions
+            return self._get_openvsx_extension_info(extension_id)
+
+        except Exception as e:
+            self.logger.error(f"Failed to get extension info for {extension_id}: {e}")
+            return None
+
+    def _get_microsoft_extension_info(self, publisher: str, package: str) -> Optional[Dict]:
+        """Get extension info from Microsoft Marketplace."""
+        try:
+            # Use the extensionquery API to get extension metadata
+            query_url = f"{self.microsoft_marketplace}/extensionquery"
+
+            payload = {
+                "filters": [{
+                    "criteria": [{
+                        "filterType": 7,
+                        "value": f"{publisher}.{package}"
+                    }],
+                    "pageNumber": 1,
+                    "pageSize": 1,
+                    "sortBy": 0,
+                    "sortOrder": 0
+                }],
+                "assetTypes": [],
+                "flags": 914
+            }
+
+            headers = {
+                "Accept": "application/json;api-version=3.0-preview.1",
+                "Content-Type": "application/json"
+            }
+
+            response = requests.post(query_url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            if data.get("results") and data["results"][0].get("extensions"):
+                extension = data["results"][0]["extensions"][0]
+                versions = extension.get("versions", [])
+                if versions:
+                    latest_version = versions[0]
+                    return {
+                        "publisher": publisher,
+                        "package": package,
+                        "version": latest_version.get("version"),
+                        "display_name": extension.get("displayName"),
+                        "description": extension.get("shortDescription"),
+                        "source": "microsoft"
+                    }
+
+            return None
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get Microsoft extension info: {e}")
+            return None
+
+    def _get_openvsx_extension_info(self, extension_id: str) -> Optional[Dict]:
+        """Get extension info from Open VSX Registry."""
+        try:
+            publisher, package = extension_id.split('.', 1)
+            api_url = f"https://open-vsx.org/api/{publisher}/{package}"
+
+            response = requests.get(api_url, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            return {
+                "publisher": publisher,
+                "package": package,
+                "version": data.get("version"),
+                "display_name": data.get("displayName"),
+                "description": data.get("description"),
+                "source": "openvsx"
+            }
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get Open VSX extension info: {e}")
+            return None
+
+    def download_vsix(self, extension_id: str, target_dir: Path) -> Optional[Path]:
+        """Download VSIX file for extension."""
+        try:
+            extension_info = self.get_extension_info(extension_id)
+            if not extension_info:
+                return None
+
+            publisher = extension_info["publisher"]
+            package = extension_info["package"]
+            version = extension_info["version"]
+
+            if extension_info["source"] == "microsoft":
+                return self._download_microsoft_vsix(publisher, package, version, target_dir)
+            else:
+                return self._download_openvsx_vsix(publisher, package, version, target_dir)
+
+        except Exception as e:
+            self.logger.error(f"Failed to download VSIX for {extension_id}: {e}")
+            return None
+
+    def _download_microsoft_vsix(self, publisher: str, package: str, version: str, target_dir: Path) -> Optional[Path]:
+        """Download VSIX from Microsoft Marketplace."""
+        try:
+            # Determine target platform
+            import platform
+            arch_map = {
+                "x86_64": "win32-x64" if sys.platform == "win32" else "linux-x64",
+                "aarch64": "linux-arm64",
+                "armv7l": "linux-armhf"
+            }
+            target_platform = arch_map.get(platform.machine(), "universal")
+
+            # Construct download URL
+            base_url = f"{self.microsoft_marketplace}/publishers/{publisher}/vsextensions/{package}/{version}/vspackage"
+            if target_platform != "universal":
+                download_url = f"{base_url}?targetPlatform={target_platform}"
+            else:
+                download_url = base_url
+
+            # Download VSIX file
+            response = requests.get(download_url, stream=True, timeout=30)
+            response.raise_for_status()
+
+            # Save to file
+            target_dir.mkdir(parents=True, exist_ok=True)
+            vsix_path = target_dir / f"{publisher}.{package}-{version}.vsix"
+
+            with open(vsix_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            self.logger.info(f"Downloaded VSIX: {vsix_path}")
+            return vsix_path
+
+        except Exception as e:
+            self.logger.error(f"Failed to download Microsoft VSIX: {e}")
+            return None
+
+    def _download_openvsx_vsix(self, publisher: str, package: str, version: str, target_dir: Path) -> Optional[Path]:
+        """Download VSIX from Open VSX Registry."""
+        try:
+            download_url = f"https://open-vsx.org/api/{publisher}/{package}/{version}/file/{publisher}.{package}-{version}.vsix"
+
+            response = requests.get(download_url, stream=True, timeout=30)
+            response.raise_for_status()
+
+            target_dir.mkdir(parents=True, exist_ok=True)
+            vsix_path = target_dir / f"{publisher}.{package}-{version}.vsix"
+
+            with open(vsix_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            self.logger.info(f"Downloaded VSIX: {vsix_path}")
+            return vsix_path
+
+        except Exception as e:
+            self.logger.error(f"Failed to download Open VSX VSIX: {e}")
+            return None
 
 # Initialize global components
 logger = Logger(LOG_FILE)
@@ -289,10 +485,15 @@ class CodeServerSetup:
         self.system_info = SystemUtils.get_system_info()
         self.code_server_process = None
         self.ngrok_tunnel = None
+        self.extension_manager = ExtensionManager(self.config, self.logger)
 
         # Ensure required directories exist
         INSTALL_DIR.mkdir(parents=True, exist_ok=True)
         BIN_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Create extensions cache directory
+        self.extensions_cache_dir = Path.home() / ".cache" / "code-server-extensions"
+        self.extensions_cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Add bin directory to PATH if not already there
         bin_str = str(BIN_DIR)
@@ -327,9 +528,10 @@ class CodeServerSetup:
                 ("5", "📊 Show Status", self.show_status),
                 ("6", "⚙️  Configure Settings", self.configure_settings),
                 ("7", "📦 Manage Extensions", self.manage_extensions),
-                ("8", "🌐 Setup Ngrok", self.setup_ngrok),
-                ("9", "🔧 System Info", self.show_system_info),
-                ("10", "📋 View Logs", self.view_logs),
+                ("8", "� Extension Registry", self.configure_extension_registry),
+                ("9", "�🌐 Setup Ngrok", self.setup_ngrok),
+                ("10", "🔧 System Info", self.show_system_info),
+                ("11", "📋 View Logs", self.view_logs),
                 ("0", "❌ Exit", self._exit_app)
             ]
 
@@ -1010,9 +1212,12 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             print("3. List Installed Extensions")
             print("4. Uninstall Extension")
             print("5. Update All Extensions")
+            print("6. Download Extension Info")
+            print("7. Check Extension Compatibility")
+            print("8. Clear Extension Cache")
             print("0. Back to Main Menu")
 
-            choice = input("\n👉 Select option (0-5): ").strip()
+            choice = input("\n👉 Select option (0-8): ").strip()
 
             if choice == "1":
                 self._install_popular_extensions()
@@ -1024,13 +1229,19 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 self._uninstall_extension()
             elif choice == "5":
                 self._update_extensions()
+            elif choice == "6":
+                self._show_extension_info()
+            elif choice == "7":
+                self._check_extension_compatibility()
+            elif choice == "8":
+                self._clear_extension_cache()
             elif choice == "0":
                 break
             else:
                 print("❌ Invalid option")
 
     def _install_popular_extensions(self):
-        """Install popular extensions."""
+        """Install popular extensions with enhanced marketplace support."""
         print("\n📦 Installing Popular Extensions...")
 
         code_server_bin = BIN_DIR / "code-server"
@@ -1042,21 +1253,70 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
         for ext in popular_extensions:
             print(f"📦 Installing {ext}...")
+
+            # Try direct installation first
+            success = self._install_extension_direct(ext)
+
+            # If direct installation fails and it's a Microsoft extension, try VSIX
+            if not success and self.extension_manager.is_microsoft_extension(ext):
+                print(f"🔄 Direct installation failed, trying VSIX download for {ext}...")
+                success = self._install_extension_via_vsix(ext)
+
+            if success:
+                print(f"✅ {ext} installed successfully")
+            else:
+                print(f"❌ Failed to install {ext}")
+
+        print("✅ Popular extensions installation completed!")
+
+    def _install_extension_direct(self, extension_id: str) -> bool:
+        """Try to install extension directly via code-server."""
+        try:
+            code_server_bin = BIN_DIR / "code-server"
             success, output = SystemUtils.run_command([
                 str(code_server_bin),
-                "--install-extension", ext,
+                "--install-extension", extension_id,
+                "--force"
+            ])
+            return success
+        except Exception as e:
+            self.logger.warning(f"Direct installation failed for {extension_id}: {e}")
+            return False
+
+    def _install_extension_via_vsix(self, extension_id: str) -> bool:
+        """Install extension via VSIX download."""
+        try:
+            # Download VSIX file
+            vsix_path = self.extension_manager.download_vsix(extension_id, self.extensions_cache_dir)
+            if not vsix_path or not vsix_path.exists():
+                return False
+
+            # Install from VSIX
+            code_server_bin = BIN_DIR / "code-server"
+            success, output = SystemUtils.run_command([
+                str(code_server_bin),
+                "--install-extension", str(vsix_path),
                 "--force"
             ])
 
             if success:
-                print(f"✅ {ext} installed")
+                self.logger.info(f"Successfully installed {extension_id} from VSIX")
+                # Clean up VSIX file after successful installation
+                try:
+                    vsix_path.unlink()
+                except:
+                    pass
+                return True
             else:
-                print(f"❌ Failed to install {ext}: {output}")
+                self.logger.error(f"Failed to install {extension_id} from VSIX: {output}")
+                return False
 
-        print("✅ Popular extensions installation completed!")
+        except Exception as e:
+            self.logger.error(f"VSIX installation failed for {extension_id}: {e}")
+            return False
 
     def _install_custom_extension(self):
-        """Install a custom extension."""
+        """Install a custom extension with enhanced support."""
         print("\n📦 Install Custom Extension")
 
         code_server_bin = BIN_DIR / "code-server"
@@ -1068,22 +1328,51 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         if not ext_id:
             return
 
-        print(f"📦 Installing {ext_id}...")
-        success, output = SystemUtils.run_command([
-            str(code_server_bin),
-            "--install-extension", ext_id,
-            "--force"
-        ])
+        # Check if it's a file path (VSIX) or extension ID
+        if ext_id.endswith('.vsix') and Path(ext_id).exists():
+            # Direct VSIX installation
+            print(f"📦 Installing from VSIX file: {ext_id}...")
+            success, output = SystemUtils.run_command([
+                str(code_server_bin),
+                "--install-extension", ext_id,
+                "--force"
+            ])
 
-        if success:
-            print(f"✅ {ext_id} installed successfully!")
-            # Add to custom extensions list
-            custom = self.config.get("extensions.custom", [])
-            if ext_id not in custom:
-                custom.append(ext_id)
-                self.config.set("extensions.custom", custom)
+            if success:
+                print(f"✅ Extension installed successfully from VSIX!")
+            else:
+                print(f"❌ Failed to install from VSIX: {output}")
         else:
-            print(f"❌ Failed to install {ext_id}: {output}")
+            # Extension ID - try enhanced installation
+            print(f"📦 Installing {ext_id}...")
+
+            # Show extension info if available
+            ext_info = self.extension_manager.get_extension_info(ext_id)
+            if ext_info:
+                print(f"📋 Extension: {ext_info.get('display_name', ext_id)}")
+                print(f"📝 Description: {ext_info.get('description', 'N/A')}")
+                print(f"🏷️  Version: {ext_info.get('version', 'N/A')}")
+                print(f"🏪 Source: {ext_info.get('source', 'N/A')}")
+                print()
+
+            # Try direct installation first
+            success = self._install_extension_direct(ext_id)
+
+            # If direct fails and it's Microsoft extension, try VSIX
+            if not success and self.extension_manager.is_microsoft_extension(ext_id):
+                print(f"🔄 Direct installation failed, trying VSIX download...")
+                success = self._install_extension_via_vsix(ext_id)
+
+            if success:
+                print(f"✅ {ext_id} installed successfully!")
+                # Add to custom extensions list
+                custom = self.config.get("extensions.custom", [])
+                if ext_id not in custom:
+                    custom.append(ext_id)
+                    self.config.set("extensions.custom", custom)
+            else:
+                print(f"❌ Failed to install {ext_id}")
+                print("💡 Try downloading the VSIX file manually and install using the file path.")
 
     def _list_extensions(self):
         """List installed extensions."""
@@ -1178,6 +1467,298 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 print(f"❌ Failed to update {ext}")
 
         print("✅ Extension updates completed!")
+
+    def _show_extension_info(self):
+        """Show detailed information about an extension."""
+        print("\n📋 Extension Information")
+
+        ext_id = input("Extension ID: ").strip()
+        if not ext_id:
+            return
+
+        print(f"🔍 Getting information for {ext_id}...")
+        ext_info = self.extension_manager.get_extension_info(ext_id)
+
+        if ext_info:
+            print(f"\n📦 Extension Details:")
+            print(f"  Name: {ext_info.get('display_name', 'N/A')}")
+            print(f"  ID: {ext_info['publisher']}.{ext_info['package']}")
+            print(f"  Version: {ext_info.get('version', 'N/A')}")
+            print(f"  Description: {ext_info.get('description', 'N/A')}")
+            print(f"  Source: {ext_info.get('source', 'N/A')}")
+
+            if self.extension_manager.is_microsoft_extension(ext_id):
+                print(f"  🏢 Microsoft Extension: Yes")
+                print(f"  💡 Note: May require VSIX download for installation")
+            else:
+                print(f"  🏢 Microsoft Extension: No")
+        else:
+            print(f"❌ Could not find information for {ext_id}")
+            print("💡 Extension may not exist or be available in the registries")
+
+    def _check_extension_compatibility(self):
+        """Check extension compatibility with current setup."""
+        print("\n🔍 Extension Compatibility Check")
+
+        ext_id = input("Extension ID: ").strip()
+        if not ext_id:
+            return
+
+        print(f"🔍 Checking compatibility for {ext_id}...")
+
+        # Check if extension info is available
+        ext_info = self.extension_manager.get_extension_info(ext_id)
+        if not ext_info:
+            print(f"❌ Extension {ext_id} not found in registries")
+            return
+
+        print(f"✅ Extension found: {ext_info.get('display_name', ext_id)}")
+
+        # Check source compatibility
+        source = ext_info.get('source', 'unknown')
+        if source == 'microsoft':
+            print(f"🏢 Microsoft Extension - May require VSIX download")
+            print(f"💡 Direct installation may fail, but VSIX fallback available")
+        elif source == 'openvsx':
+            print(f"🌐 Open VSX Extension - Should install directly")
+        else:
+            print(f"❓ Unknown source - Compatibility uncertain")
+
+        # Check if already installed
+        code_server_bin = BIN_DIR / "code-server"
+        if code_server_bin.exists():
+            success, output = SystemUtils.run_command([
+                str(code_server_bin),
+                "--list-extensions"
+            ])
+
+            if success and ext_id in output:
+                print(f"✅ Extension is already installed")
+            else:
+                print(f"📦 Extension is not currently installed")
+        else:
+            print(f"❌ Code Server not installed - Cannot check installation status")
+
+    def _clear_extension_cache(self):
+        """Clear extension cache directory."""
+        print("\n🧹 Clear Extension Cache")
+
+        if not self.extensions_cache_dir.exists():
+            print("ℹ️  No cache directory found")
+            return
+
+        try:
+            cache_files = list(self.extensions_cache_dir.glob("*.vsix"))
+            if not cache_files:
+                print("ℹ️  Cache directory is already empty")
+                return
+
+            print(f"Found {len(cache_files)} cached VSIX files:")
+            for file in cache_files:
+                print(f"  - {file.name}")
+
+            confirm = input("\nDelete all cached files? (y/N): ").strip().lower()
+            if confirm == 'y':
+                for file in cache_files:
+                    file.unlink()
+                print("✅ Extension cache cleared successfully!")
+
+    def configure_extension_registry(self):
+        """Configure extension registry (Open VSX vs Microsoft Marketplace)."""
+        print("\n🏪 Extension Registry Configuration")
+
+        # Get current registry configuration
+        current_registry = self._get_current_registry()
+        print(f"📋 Current Registry: {current_registry}")
+
+        print("\n📋 Available Registries:")
+        print("1. Open VSX Registry (Default)")
+        print("   - Open source extensions")
+        print("   - Community maintained")
+        print("   - No licensing restrictions")
+        print()
+        print("2. Microsoft Visual Studio Marketplace")
+        print("   - Full Microsoft extension catalog")
+        print("   - Includes proprietary extensions")
+        print("   - May have licensing restrictions")
+        print()
+        print("3. Custom Registry")
+        print("   - Use your own marketplace")
+        print("   - Enterprise/private registries")
+        print()
+        print("0. Back to Main Menu")
+
+        choice = input("\n👉 Select registry (0-3): ").strip()
+
+        if choice == "1":
+            self._configure_openvsx_registry()
+        elif choice == "2":
+            self._configure_microsoft_registry()
+        elif choice == "3":
+            self._configure_custom_registry()
+        elif choice == "0":
+            return
+        else:
+            print("❌ Invalid option")
+
+    def _get_current_registry(self) -> str:
+        """Get current extension registry configuration."""
+        try:
+            extensions_gallery = os.environ.get('EXTENSIONS_GALLERY')
+            if not extensions_gallery:
+                return "Open VSX (Default)"
+
+            import json
+            config = json.loads(extensions_gallery)
+            service_url = config.get('serviceUrl', '')
+
+            if 'marketplace.visualstudio.com' in service_url:
+                return "Microsoft Marketplace"
+            elif 'open-vsx.org' in service_url:
+                return "Open VSX"
+            else:
+                return f"Custom ({service_url})"
+
+        except Exception:
+            return "Open VSX (Default)"
+
+    def _configure_openvsx_registry(self):
+        """Configure Open VSX Registry."""
+        print("\n🌐 Configuring Open VSX Registry...")
+
+        # Remove EXTENSIONS_GALLERY environment variable to use default
+        if 'EXTENSIONS_GALLERY' in os.environ:
+            del os.environ['EXTENSIONS_GALLERY']
+
+        # Update shell profile to remove EXTENSIONS_GALLERY
+        self._update_shell_profile_registry(None)
+
+        print("✅ Open VSX Registry configured successfully!")
+        print("💡 This is the default registry - no special configuration needed")
+        print("🔄 Restart Code Server to apply changes")
+
+        restart = input("\n🔄 Restart Code Server now? (y/N): ").strip().lower()
+        if restart == 'y':
+            self.restart_code_server()
+
+    def _configure_microsoft_registry(self):
+        """Configure Microsoft Visual Studio Marketplace."""
+        print("\n🏢 Configuring Microsoft Visual Studio Marketplace...")
+        print("⚠️  Note: This may have licensing restrictions for commercial use")
+
+        confirm = input("Continue? (y/N): ").strip().lower()
+        if confirm != 'y':
+            return
+
+        # Microsoft Marketplace configuration
+        extensions_gallery = {
+            "serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+            "itemUrl": "https://marketplace.visualstudio.com/items",
+            "resourceUrlTemplate": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{name}/{version}/vspackage"
+        }
+
+        import json
+        gallery_json = json.dumps(extensions_gallery)
+
+        # Set environment variable for current session
+        os.environ['EXTENSIONS_GALLERY'] = gallery_json
+
+        # Update shell profile for persistence
+        self._update_shell_profile_registry(gallery_json)
+
+        print("✅ Microsoft Marketplace configured successfully!")
+        print("🔍 You can now search and install Microsoft extensions")
+        print("🔄 Restart Code Server to apply changes")
+
+        restart = input("\n🔄 Restart Code Server now? (y/N): ").strip().lower()
+        if restart == 'y':
+            self.restart_code_server()
+
+    def _configure_custom_registry(self):
+        """Configure custom extension registry."""
+        print("\n🔧 Configure Custom Registry")
+
+        service_url = input("Service URL: ").strip()
+        if not service_url:
+            print("❌ Service URL is required")
+            return
+
+        item_url = input("Item URL: ").strip()
+        if not item_url:
+            print("❌ Item URL is required")
+            return
+
+        resource_template = input("Resource URL Template: ").strip()
+        if not resource_template:
+            print("❌ Resource URL Template is required")
+            return
+
+        # Custom registry configuration
+        extensions_gallery = {
+            "serviceUrl": service_url,
+            "itemUrl": item_url,
+            "resourceUrlTemplate": resource_template
+        }
+
+        import json
+        gallery_json = json.dumps(extensions_gallery)
+
+        # Set environment variable for current session
+        os.environ['EXTENSIONS_GALLERY'] = gallery_json
+
+        # Update shell profile for persistence
+        self._update_shell_profile_registry(gallery_json)
+
+        print("✅ Custom registry configured successfully!")
+        print("🔄 Restart Code Server to apply changes")
+
+        restart = input("\n🔄 Restart Code Server now? (y/N): ").strip().lower()
+        if restart == 'y':
+            self.restart_code_server()
+
+    def _update_shell_profile_registry(self, gallery_json: str):
+        """Update shell profile with EXTENSIONS_GALLERY configuration."""
+        try:
+            # Determine shell profile file
+            shell_profile = None
+            if os.path.exists(os.path.expanduser("~/.bashrc")):
+                shell_profile = os.path.expanduser("~/.bashrc")
+            elif os.path.exists(os.path.expanduser("~/.bash_profile")):
+                shell_profile = os.path.expanduser("~/.bash_profile")
+            elif os.path.exists(os.path.expanduser("~/.zshrc")):
+                shell_profile = os.path.expanduser("~/.zshrc")
+
+            if not shell_profile:
+                self.logger.warning("No shell profile found")
+                return
+
+            # Read current profile
+            with open(shell_profile, 'r') as f:
+                lines = f.readlines()
+
+            # Remove existing EXTENSIONS_GALLERY lines
+            lines = [line for line in lines if 'EXTENSIONS_GALLERY' not in line]
+
+            # Add new configuration if provided
+            if gallery_json:
+                lines.append(f'\nexport EXTENSIONS_GALLERY=\'{gallery_json}\'\n')
+
+            # Write back to profile
+            with open(shell_profile, 'w') as f:
+                f.writelines(lines)
+
+            self.logger.info(f"Updated shell profile: {shell_profile}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to update shell profile: {e}")
+            print(f"⚠️  Warning: Could not update shell profile: {e}")
+            print("💡 You may need to set EXTENSIONS_GALLERY manually")
+            else:
+                print("❌ Cache clearing cancelled")
+
+        except Exception as e:
+            self.logger.error(f"Failed to clear cache: {e}")
+            print(f"❌ Failed to clear cache: {e}")
 
     def show_system_info(self):
         """Show detailed system information."""
