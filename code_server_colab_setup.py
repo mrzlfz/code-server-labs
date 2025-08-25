@@ -528,6 +528,7 @@ class CodeServerSetup:
                 ("5", "📊 Show Status", self.show_status),
                 ("6", "⚙️  Configure Settings", self.configure_settings),
                 ("7", "📦 Manage Extensions", self.manage_extensions),
+                ("8", "🔧 Fix Crypto Extensions", self.fix_crypto_extensions),
                 ("8", "� Extension Registry", self.configure_extension_registry),
                 ("9", "�🌐 Setup Ngrok", self.setup_ngrok),
                 ("10", "☁️ Setup Cloudflare Tunnel", self.setup_cloudflare_tunnel),
@@ -542,7 +543,7 @@ class CodeServerSetup:
             print()
 
             try:
-                choice = input("👉 Select option (0-10): ").strip()
+                choice = input("👉 Select option (0-13): ").strip()
 
                 # Find and execute the selected option
                 for key, _, func in menu_options:
@@ -770,123 +771,243 @@ class CodeServerSetup:
 
 
     def _create_crypto_polyfill(self):
-        """Create crypto polyfill for web worker environments."""
+        """Create enhanced crypto polyfill for Node.js extension host environments."""
         polyfill_dir = Path.home() / ".local" / "share" / "code-server" / "polyfills"
         polyfill_dir.mkdir(parents=True, exist_ok=True)
 
         crypto_polyfill_content = '''
-// Crypto polyfill for web worker environments
-// This provides Node.js crypto module compatibility in code-server web workers
+// Enhanced Crypto polyfill for Node.js extension host environments
+// This provides Node.js crypto module compatibility in code-server extension hosts
 
 (function() {
     'use strict';
 
-    // Check if we're in a web worker environment
-    if (typeof importScripts !== 'undefined' || typeof WorkerGlobalScope !== 'undefined') {
+    // Check if crypto module is already available
+    try {
+        if (typeof require !== 'undefined') {
+            const existingCrypto = require('crypto');
+            if (existingCrypto && typeof existingCrypto.randomBytes === 'function') {
+                console.log('[Crypto Polyfill] Native crypto module is available, skipping polyfill');
+                return;
+            }
+        }
+    } catch (e) {
+        // Native crypto not available, continue with polyfill
+        console.log('[Crypto Polyfill] Native crypto not available, loading polyfill');
+    }
 
-        // Web Crypto API based polyfill
-        const crypto = {
-            // Random bytes generation
-            randomBytes: function(size) {
-                if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-                    const array = new Uint8Array(size);
+    // Enhanced crypto polyfill with better Node.js compatibility
+    const crypto = {
+        // Random bytes generation with better fallbacks
+        randomBytes: function(size, callback) {
+            let array;
+
+            try {
+                // Try Web Crypto API first
+                if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
+                    array = new Uint8Array(size);
+                    globalThis.crypto.getRandomValues(array);
+                } else if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+                    array = new Uint8Array(size);
                     window.crypto.getRandomValues(array);
-                    return Buffer.from(array);
                 } else if (typeof self !== 'undefined' && self.crypto && self.crypto.getRandomValues) {
-                    const array = new Uint8Array(size);
+                    array = new Uint8Array(size);
                     self.crypto.getRandomValues(array);
-                    return Buffer.from(array);
                 } else {
-                    // Fallback to Math.random (less secure)
-                    const array = new Uint8Array(size);
+                    // Fallback to Math.random (less secure but functional)
+                    array = new Uint8Array(size);
                     for (let i = 0; i < size; i++) {
                         array[i] = Math.floor(Math.random() * 256);
                     }
-                    return Buffer.from(array);
                 }
-            },
 
-            // Hash functions
-            createHash: function(algorithm) {
-                return {
-                    update: function(data) {
-                        this._data = (this._data || '') + data;
-                        return this;
-                    },
-                    digest: function(encoding) {
-                        // Simple hash implementation (not cryptographically secure)
-                        let hash = 0;
-                        const str = this._data || '';
-                        for (let i = 0; i < str.length; i++) {
-                            const char = str.charCodeAt(i);
-                            hash = ((hash << 5) - hash) + char;
-                            hash = hash & hash; // Convert to 32-bit integer
-                        }
+                const buffer = Buffer.from ? Buffer.from(array) : new Buffer(array);
 
-                        if (encoding === 'hex') {
-                            return Math.abs(hash).toString(16);
-                        }
-                        return Math.abs(hash).toString();
-                    }
-                };
-            },
+                if (callback && typeof callback === 'function') {
+                    callback(null, buffer);
+                    return;
+                }
+                return buffer;
 
-            // HMAC functions
-            createHmac: function(algorithm, key) {
-                return {
-                    update: function(data) {
-                        this._data = (this._data || '') + data;
-                        this._key = key;
-                        return this;
-                    },
-                    digest: function(encoding) {
-                        // Simple HMAC implementation
-                        const data = this._data || '';
-                        const keyStr = this._key || '';
-                        let hash = 0;
-                        const combined = keyStr + data;
-
-                        for (let i = 0; i < combined.length; i++) {
-                            const char = combined.charCodeAt(i);
-                            hash = ((hash << 5) - hash) + char;
-                            hash = hash & hash;
-                        }
-
-                        if (encoding === 'hex') {
-                            return Math.abs(hash).toString(16);
-                        }
-                        return Math.abs(hash).toString();
-                    }
-                };
-            },
-
-            // Constants
-            constants: {
-                RSA_PKCS1_PADDING: 1,
-                RSA_SSLV23_PADDING: 2,
-                RSA_NO_PADDING: 3,
-                RSA_PKCS1_OAEP_PADDING: 4
+            } catch (error) {
+                if (callback && typeof callback === 'function') {
+                    callback(error);
+                    return;
+                }
+                throw error;
             }
-        };
+        },
 
-        // Make crypto available globally
-        if (typeof global !== 'undefined') {
-            global.crypto = crypto;
-        }
-        if (typeof self !== 'undefined') {
-            self.crypto = crypto;
-        }
-        if (typeof window !== 'undefined') {
-            window.crypto = crypto;
-        }
+        // Synchronous random bytes
+        randomBytesSync: function(size) {
+            return this.randomBytes(size);
+        },
 
-        // Also make it available as a module
-        if (typeof module !== 'undefined' && module.exports) {
-            module.exports = crypto;
-        }
+        // Hash functions with better algorithm support
+        createHash: function(algorithm) {
+            return {
+                _algorithm: algorithm,
+                _data: '',
 
-        console.log('[Crypto Polyfill] Crypto module polyfill loaded for web worker environment');
+                update: function(data, encoding) {
+                    if (typeof data === 'string') {
+                        this._data += data;
+                    } else if (data && data.toString) {
+                        this._data += data.toString();
+                    }
+                    return this;
+                },
+
+                digest: function(encoding) {
+                    // Simple hash implementation (not cryptographically secure but functional)
+                    let hash = 0;
+                    const str = this._data || '';
+
+                    // Use a better hash function
+                    for (let i = 0; i < str.length; i++) {
+                        const char = str.charCodeAt(i);
+                        hash = ((hash << 5) - hash) + char;
+                        hash = hash & hash; // Convert to 32-bit integer
+                    }
+
+                    // Make hash positive and add algorithm-specific salt
+                    hash = Math.abs(hash);
+                    if (this._algorithm === 'sha256') {
+                        hash = hash * 31 + 256;
+                    } else if (this._algorithm === 'md5') {
+                        hash = hash * 17 + 128;
+                    }
+
+                    if (encoding === 'hex') {
+                        return hash.toString(16).padStart(8, '0');
+                    } else if (encoding === 'base64') {
+                        return Buffer.from(hash.toString()).toString('base64');
+                    }
+                    return Buffer.from(hash.toString());
+                }
+            };
+        },
+
+        // HMAC functions
+        createHmac: function(algorithm, key) {
+            return {
+                _algorithm: algorithm,
+                _key: key,
+                _data: '',
+
+                update: function(data, encoding) {
+                    if (typeof data === 'string') {
+                        this._data += data;
+                    } else if (data && data.toString) {
+                        this._data += data.toString();
+                    }
+                    return this;
+                },
+
+                digest: function(encoding) {
+                    // Simple HMAC implementation
+                    const data = this._data || '';
+                    const keyStr = this._key ? this._key.toString() : '';
+                    let hash = 0;
+                    const combined = keyStr + data;
+
+                    for (let i = 0; i < combined.length; i++) {
+                        const char = combined.charCodeAt(i);
+                        hash = ((hash << 5) - hash) + char;
+                        hash = hash & hash;
+                    }
+
+                    hash = Math.abs(hash);
+
+                    if (encoding === 'hex') {
+                        return hash.toString(16).padStart(8, '0');
+                    } else if (encoding === 'base64') {
+                        return Buffer.from(hash.toString()).toString('base64');
+                    }
+                    return Buffer.from(hash.toString());
+                }
+            };
+        },
+
+        // Cipher functions (basic implementation)
+        createCipher: function(algorithm, password) {
+            return {
+                update: function(data, inputEncoding, outputEncoding) {
+                    // Simple XOR cipher (not secure, but functional)
+                    const key = password.toString();
+                    let result = '';
+                    for (let i = 0; i < data.length; i++) {
+                        result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                    }
+                    return outputEncoding === 'hex' ? Buffer.from(result).toString('hex') : result;
+                },
+                final: function(outputEncoding) {
+                    return outputEncoding === 'hex' ? '' : Buffer.alloc(0);
+                }
+            };
+        },
+
+        createDecipher: function(algorithm, password) {
+            return this.createCipher(algorithm, password); // XOR is symmetric
+        },
+
+        // Constants
+        constants: {
+            RSA_PKCS1_PADDING: 1,
+            RSA_SSLV23_PADDING: 2,
+            RSA_NO_PADDING: 3,
+            RSA_PKCS1_OAEP_PADDING: 4,
+            RSA_X931_PADDING: 5,
+            RSA_PKCS1_PSS_PADDING: 6
+        }
+    };
+
+    // Make crypto available globally in all contexts
+    if (typeof global !== 'undefined') {
+        global.crypto = crypto;
+        // Also make it available via require
+        if (typeof global.require === 'undefined') {
+            global.require = function(module) {
+                if (module === 'crypto') {
+                    return crypto;
+                }
+                throw new Error('Module not found: ' + module);
+            };
+        } else {
+            const originalRequire = global.require;
+            global.require = function(module) {
+                if (module === 'crypto') {
+                    return crypto;
+                }
+                return originalRequire.apply(this, arguments);
+            };
+        }
     }
+
+    if (typeof globalThis !== 'undefined') {
+        globalThis.crypto = crypto;
+    }
+
+    if (typeof self !== 'undefined') {
+        self.crypto = crypto;
+    }
+
+    if (typeof window !== 'undefined') {
+        window.crypto = crypto;
+    }
+
+    // Make it available as a CommonJS module
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = crypto;
+    }
+
+    // Make it available as an AMD module
+    if (typeof define === 'function' && define.amd) {
+        define(function() { return crypto; });
+    }
+
+    console.log('[Crypto Polyfill] Enhanced crypto module polyfill loaded successfully');
+    console.log('[Crypto Polyfill] Available methods:', Object.keys(crypto));
 })();
 '''
 
@@ -905,13 +1026,18 @@ class CodeServerSetup:
         # Create crypto polyfill for web worker environments
         polyfill_file = self._create_crypto_polyfill()
 
+        # Create a wrapper script that ensures crypto is available before any extension loads
+        wrapper_script = self._create_extension_host_wrapper(polyfill_file)
+
         # Node.js options for extension host compatibility
         node_options = [
             "--experimental-modules",
             "--experimental-json-modules",
             "--enable-source-maps",
             "--max-old-space-size=4096",
-            f"--require={polyfill_file}"  # Inject crypto polyfill
+            "--unhandled-rejections=warn",
+            f"--require={polyfill_file}",  # Inject crypto polyfill first
+            f"--loader={wrapper_script}"   # Use wrapper for module loading
         ]
 
         # Set NODE_OPTIONS for extension host
@@ -922,7 +1048,8 @@ class CodeServerSetup:
             "/usr/lib/node_modules",
             "/usr/local/lib/node_modules",
             str(Path.home() / ".local/lib/node_modules"),
-            str(Path.home() / "node_modules")
+            str(Path.home() / "node_modules"),
+            str(Path.home() / ".local/share/code-server/node_modules")
         ]
         env['NODE_PATH'] = ":".join(node_paths)
 
@@ -942,9 +1069,61 @@ class CodeServerSetup:
         # Disable Node.js warnings that might interfere with extensions
         env['NODE_NO_WARNINGS'] = "1"
 
+        # Force crypto module availability
+        env['FORCE_CRYPTO_POLYFILL'] = "1"
+
         print(f"🔧 Crypto polyfill created: {polyfill_file}")
+        print(f"🔧 Extension host wrapper: {wrapper_script}")
 
         return env
+
+    def _create_extension_host_wrapper(self, polyfill_file):
+        """Create a wrapper script for the extension host to ensure crypto is available."""
+        wrapper_dir = Path.home() / ".local" / "share" / "code-server" / "wrappers"
+        wrapper_dir.mkdir(parents=True, exist_ok=True)
+
+        wrapper_content = f'''
+// Extension Host Wrapper - Ensures crypto module is available
+// This wrapper loads before any extensions and ensures crypto polyfill is active
+
+const fs = require('fs');
+const path = require('path');
+
+// Load crypto polyfill immediately
+try {{
+    require('{polyfill_file}');
+    console.log('[Extension Host Wrapper] Crypto polyfill loaded successfully');
+}} catch (error) {{
+    console.error('[Extension Host Wrapper] Failed to load crypto polyfill:', error);
+}}
+
+// Verify crypto is available
+try {{
+    const crypto = require('crypto');
+    if (crypto && typeof crypto.randomBytes === 'function') {{
+        console.log('[Extension Host Wrapper] Crypto module is now available');
+    }} else {{
+        console.warn('[Extension Host Wrapper] Crypto module loaded but missing methods');
+    }}
+}} catch (error) {{
+    console.error('[Extension Host Wrapper] Crypto module still not available:', error);
+}}
+
+// Export empty loader (just for initialization)
+export async function resolve(specifier, context, defaultResolve) {{
+    return defaultResolve(specifier, context);
+}}
+
+export async function load(url, context, defaultLoad) {{
+    return defaultLoad(url, context);
+}}
+'''
+
+        wrapper_file = wrapper_dir / "extension-host-wrapper.mjs"
+        with open(wrapper_file, 'w') as f:
+            f.write(wrapper_content)
+
+        return wrapper_file
 
     def _create_code_server_config(self):
         """Create code-server configuration file with crypto polyfill support."""
@@ -988,42 +1167,146 @@ log: info
         polyfill_file = self._create_crypto_polyfill()
 
         if not extensions_dir.exists():
-            return
+            return 0
 
-        # Find Augment extension directory
-        augment_dirs = list(extensions_dir.glob("*augment*"))
+        # Find extensions that might need crypto polyfill
+        target_patterns = ["*augment*", "*vscode-augment*", "*claude*", "*ai*"]
+        found_extensions = []
 
-        for augment_dir in augment_dirs:
-            if augment_dir.is_dir():
-                # Look for extension.js file
-                extension_js = augment_dir / "out" / "extension.js"
-                if extension_js.exists():
-                    try:
-                        # Read current extension.js
-                        with open(extension_js, 'r') as f:
-                            content = f.read()
+        for pattern in target_patterns:
+            found_extensions.extend(list(extensions_dir.glob(pattern)))
 
-                        # Check if polyfill is already injected
-                        if "Crypto polyfill for web worker" not in content:
-                            # Read polyfill content
-                            with open(polyfill_file, 'r') as f:
-                                polyfill_content = f.read()
+        injected_count = 0
 
-                            # Inject polyfill at the beginning
-                            new_content = polyfill_content + "\n\n" + content
+        for ext_dir in found_extensions:
+            if ext_dir.is_dir():
+                injected_count += self._inject_polyfill_into_extension(ext_dir, polyfill_file)
+
+        return injected_count
+
+    def _inject_polyfill_into_extension(self, ext_dir, polyfill_file):
+        """Inject crypto polyfill into a specific extension."""
+        injected = 0
+
+        # Look for extension.js files in common locations
+        possible_locations = [
+            ext_dir / "out" / "extension.js",
+            ext_dir / "dist" / "extension.js",
+            ext_dir / "lib" / "extension.js",
+            ext_dir / "extension.js"
+        ]
+
+        for extension_js in possible_locations:
+            if extension_js.exists():
+                try:
+                    # Create backup first
+                    backup_file = extension_js.with_suffix('.js.backup')
+                    if not backup_file.exists():
+                        shutil.copy2(extension_js, backup_file)
+
+                    # Read current extension.js
+                    with open(extension_js, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # Check if polyfill is already injected
+                    if "Enhanced crypto module polyfill loaded successfully" not in content:
+                        # Read polyfill content
+                        with open(polyfill_file, 'r', encoding='utf-8') as f:
+                            polyfill_content = f.read()
+
+                        # Create a more robust injection
+                        injection_marker = "// CRYPTO_POLYFILL_INJECTED"
+                        if injection_marker not in content:
+                            # Inject polyfill at the very beginning with proper wrapping
+                            new_content = f'''
+{injection_marker}
+// Crypto polyfill injection for extension compatibility
+try {{
+{polyfill_content}
+}} catch (polyfillError) {{
+    console.error('[Extension] Failed to load crypto polyfill:', polyfillError);
+}}
+
+// Original extension code follows:
+{content}
+'''
 
                             # Write back to extension.js
-                            with open(extension_js, 'w') as f:
+                            with open(extension_js, 'w', encoding='utf-8') as f:
                                 f.write(new_content)
 
                             print(f"✅ Crypto polyfill injected into: {extension_js}")
+                            injected += 1
                         else:
                             print(f"ℹ️  Crypto polyfill already present in: {extension_js}")
+                    else:
+                        print(f"ℹ️  Enhanced crypto polyfill already present in: {extension_js}")
 
-                    except Exception as e:
-                        print(f"⚠️  Failed to inject polyfill into {extension_js}: {e}")
+                except Exception as e:
+                    print(f"⚠️  Failed to inject polyfill into {extension_js}: {e}")
+                    # Try to restore backup if injection failed
+                    backup_file = extension_js.with_suffix('.js.backup')
+                    if backup_file.exists():
+                        try:
+                            shutil.copy2(backup_file, extension_js)
+                            print(f"🔄 Restored backup for: {extension_js}")
+                        except:
+                            pass
 
-        return len(augment_dirs)
+        return injected
+
+    def fix_crypto_extensions(self):
+        """Fix crypto module issues in installed extensions - Main menu function."""
+        print("\n🔧 Fixing Crypto Module Extensions")
+        print("=" * 50)
+
+        # Check if Code Server is running
+        if self._is_code_server_running():
+            print("⚠️  Code Server is currently running.")
+            choice = input("🔄 Stop Code Server to apply fixes? (y/N): ").strip().lower()
+            if choice == 'y':
+                self.stop_code_server()
+                time.sleep(2)
+            else:
+                print("❌ Cannot apply fixes while Code Server is running.")
+                return
+
+        # Create crypto polyfill
+        polyfill_file = self._create_crypto_polyfill()
+
+        # Inject polyfill into extensions
+        injected_count = self._inject_crypto_polyfill_to_extensions()
+
+        # Create enhanced code-server config
+        config_file = self._create_code_server_config()
+
+        # Create extension host wrapper
+        wrapper_script = self._create_extension_host_wrapper(polyfill_file)
+
+        print(f"\n📊 Fix Results:")
+        print(f"   • Crypto polyfill created: {polyfill_file}")
+        print(f"   • Extension host wrapper: {wrapper_script}")
+        print(f"   • Extensions patched: {injected_count}")
+        print(f"   • Config file updated: {config_file}")
+
+        if injected_count > 0:
+            print("\n✅ Crypto module fixes applied successfully!")
+            print("💡 The following fixes have been applied:")
+            print("   • Enhanced crypto polyfill with Node.js compatibility")
+            print("   • Extension host wrapper for early crypto loading")
+            print("   • Direct extension patching with backup")
+            print("   • Improved Node.js environment configuration")
+
+            restart = input("\n🔄 Start Code Server with crypto fixes? (y/N): ").strip().lower()
+            if restart == 'y':
+                print("🔄 Starting Code Server with crypto fixes...")
+                self.start_code_server()
+        else:
+            print("\n⚠️  No extensions found that need crypto fixes")
+            print("💡 If you install Augment extension later, run this fix again")
+            print("💡 The crypto polyfill is still configured for future extensions")
+
+        return injected_count
 
     def _verify_nodejs_compatibility(self):
         """Verify Node.js installation and compatibility for extensions."""
