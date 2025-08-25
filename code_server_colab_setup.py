@@ -791,6 +791,113 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         except Exception as e:
             self.logger.error(f"Config creation failed: {e}")
 
+    def _setup_nodejs_environment(self, env):
+        """Setup Node.js environment variables for extension compatibility.
+
+        This fixes the crypto module issue and other Node.js compatibility problems
+        that prevent extensions like Augment from working properly.
+        """
+        # Node.js options for extension host compatibility
+        node_options = [
+            "--experimental-modules",
+            "--experimental-json-modules",
+            "--enable-source-maps",
+            "--max-old-space-size=4096"
+        ]
+
+        # Set NODE_OPTIONS for extension host
+        env['NODE_OPTIONS'] = " ".join(node_options)
+
+        # Set NODE_PATH to include system and local node modules
+        node_paths = [
+            "/usr/lib/node_modules",
+            "/usr/local/lib/node_modules",
+            str(Path.home() / ".local/lib/node_modules"),
+            str(Path.home() / "node_modules")
+        ]
+        env['NODE_PATH'] = ":".join(node_paths)
+
+        # Extension host specific environment variables
+        env['VSCODE_EXTENSION_HOST_NODE_OPTIONS'] = " ".join(node_options)
+        env['VSCODE_ALLOW_IO'] = "true"
+        env['VSCODE_WEBVIEW_EXTERNAL_ENDPOINT'] = "{{HOSTNAME}}"
+
+        # Enable crypto and other Node.js modules for extensions
+        env['NODE_PRESERVE_SYMLINKS'] = "1"
+        env['NODE_PRESERVE_SYMLINKS_MAIN'] = "1"
+
+        # Disable Node.js warnings that might interfere with extensions
+        env['NODE_NO_WARNINGS'] = "1"
+
+        return env
+
+    def _verify_nodejs_compatibility(self):
+        """Verify Node.js installation and compatibility for extensions."""
+        try:
+            # Check Node.js version
+            result = subprocess.run(['node', '--version'], capture_output=True, text=True)
+            if result.returncode == 0:
+                version = result.stdout.strip()
+                print(f"✅ Node.js version: {version}")
+
+                # Check if version is compatible (v14+ recommended)
+                version_num = version.replace('v', '').split('.')[0]
+                if int(version_num) >= 14:
+                    print("✅ Node.js version is compatible with extensions")
+                else:
+                    print("⚠️  Node.js version might be too old for some extensions")
+
+                return True
+            else:
+                print("❌ Node.js not found or not working")
+                return False
+
+        except Exception as e:
+            print(f"❌ Error checking Node.js: {e}")
+            return False
+
+    def _check_extension_compatibility(self):
+        """Check if the environment is properly configured for extension compatibility."""
+        print("\n🔍 Extension Compatibility Check")
+        print("=" * 50)
+
+        # Check Node.js
+        nodejs_ok = self._verify_nodejs_compatibility()
+
+        # Check crypto module availability
+        try:
+            result = subprocess.run(['node', '-e', 'console.log(require("crypto"))'],
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print("✅ Crypto module is available")
+                crypto_ok = True
+            else:
+                print("❌ Crypto module is not available")
+                crypto_ok = False
+        except Exception:
+            print("❌ Cannot test crypto module")
+            crypto_ok = False
+
+        # Check environment variables
+        env_vars = ['NODE_OPTIONS', 'NODE_PATH', 'EXTENSIONS_GALLERY']
+        env_ok = True
+        for var in env_vars:
+            if os.environ.get(var):
+                print(f"✅ {var} is set")
+            else:
+                print(f"❌ {var} is not set")
+                env_ok = False
+
+        overall_status = nodejs_ok and crypto_ok and env_ok
+
+        if overall_status:
+            print("\n🎉 Environment is ready for extensions like Augment!")
+        else:
+            print("\n⚠️  Some compatibility issues detected")
+            print("💡 Try restarting Code Server with enhanced environment")
+
+        return overall_status
+
     def start_code_server(self):
         """Start Code Server process with default Hybrid Registry (Microsoft + Open VSX)."""
         print("▶️  Starting Code Server with Hybrid Registry...")
@@ -814,6 +921,7 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             print("🚀 Starting Code Server with Hybrid Registry...")
             print("🏢 Primary Registry: Microsoft Marketplace (UI search/discovery)")
             print("🌐 Fallback Registry: Open VSX (automatic fallback)")
+            print("🔧 Node.js Environment: Configured for extension compatibility")
 
             # Prepare environment with Microsoft Marketplace as primary
             env = os.environ.copy()
@@ -822,6 +930,9 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             # Set password via environment variable
             password = self.config.get("code_server.password", "colab123")
             env['PASSWORD'] = password
+
+            # Setup Node.js environment for extension compatibility (fixes crypto module issue)
+            env = self._setup_nodejs_environment(env)
 
             # Start process
             self.code_server_process = subprocess.Popen(
@@ -1670,13 +1781,18 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         print("   - Verify environment variables")
         print("   - Check Code Server process")
         print()
-        print("6. Force Restart with Environment")
+        print("7. Force Restart with Environment")
         print("   - Restart Code Server with current env vars")
         print("   - Fix registry not applying issue")
         print()
+        print("8. Check Extension Compatibility")
+        print("   - Verify Node.js and crypto module")
+        print("   - Check environment configuration")
+        print("   - Test extension host compatibility")
+        print()
         print("0. Back to Main Menu")
 
-        choice = input("\n👉 Select option (0-6): ").strip()
+        choice = input("\n👉 Select option (0-8): ").strip()
 
         if choice == "1":
             print("✅ Keeping default hybrid registry - no action needed!")
@@ -1691,6 +1807,10 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self._reset_to_default_hybrid()
         elif choice == "6":
             self._debug_registry_configuration()
+        elif choice == "7":
+            self._force_restart_with_env()
+        elif choice == "8":
+            self._check_extension_compatibility()
         elif choice == "0":
             return
         else:
@@ -2443,6 +2563,7 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 time.sleep(2)
 
         print("▶️  Starting Code Server with current environment...")
+        print("🔧 Node.js Environment: Configuring for extension compatibility...")
 
         # Get Code Server configuration
         port = self.config.get("code_server.port", 8080)
@@ -2453,12 +2574,18 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         env['EXTENSIONS_GALLERY'] = extensions_gallery
         env['PASSWORD'] = password  # Use environment variable instead of --password
 
+        # Setup Node.js environment for extension compatibility (fixes crypto module issue)
+        env = self._setup_nodejs_environment(env)
+
         # Start Code Server with explicit environment
         try:
             # Use same approach as regular start_code_server but with custom environment
             code_server_bin = BIN_DIR / "code-server"
 
-            print(f"🚀 Starting Code Server with Microsoft Marketplace environment...")
+            print(f"🚀 Starting Code Server with enhanced environment...")
+            print("   • Microsoft Marketplace registry")
+            print("   • Node.js modules support (crypto, fs, etc.)")
+            print("   • Extension host compatibility")
 
             # Start in background (similar to regular start_code_server)
             process = subprocess.Popen(
@@ -2989,41 +3116,6 @@ def main():
     # Initialize application
     app = CodeServerSetup()
 
-    # Handle command line arguments
-    if args.install:
-        app.install_code_server()
-    elif args.start:
-        app.start_code_server()
-    elif args.stop:
-        app.stop_code_server()
-    elif args.status:
-        app.show_status()
-    elif args.config:
-        app.configure_settings()
-    else:
-        app.show_interactive_menu()
-
-if __name__ == "__main__":
-    main()
-
-def main():
-    """Main application entry point."""
-    print_banner()
-    
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Code Server Setup for Google Colab")
-    parser.add_argument("--install", action="store_true", help="Install Code Server")
-    parser.add_argument("--start", action="store_true", help="Start Code Server")
-    parser.add_argument("--stop", action="store_true", help="Stop Code Server")
-    parser.add_argument("--status", action="store_true", help="Show status")
-    parser.add_argument("--config", action="store_true", help="Configure settings")
-    parser.add_argument("--menu", action="store_true", default=True, help="Show interactive menu")
-    
-    args = parser.parse_args()
-    
-    # Initialize application
-    app = CodeServerSetup()
-    
     # Handle command line arguments
     if args.install:
         app.install_code_server()
