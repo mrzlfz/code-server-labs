@@ -40,6 +40,8 @@ try:
     from pyngrok import ngrok, conf
     PYNGROK_AVAILABLE = True
 except ImportError:
+    ngrok = None
+    conf = None
     PYNGROK_AVAILABLE = False
 
 try:
@@ -47,6 +49,19 @@ try:
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
+
+def _import_pyngrok():
+    """Safely import pyngrok and update global variables."""
+    global ngrok, conf, PYNGROK_AVAILABLE
+    try:
+        from pyngrok import ngrok, conf
+        PYNGROK_AVAILABLE = True
+        return True
+    except ImportError:
+        ngrok = None
+        conf = None
+        PYNGROK_AVAILABLE = False
+        return False
 
 # Configuration
 CONFIG_DIR = Path.home() / ".config" / "code-server-colab"
@@ -630,9 +645,12 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
 
         try:
             # Stop ngrok tunnel first
-            if self.ngrok_tunnel:
+            if self.ngrok_tunnel and ngrok is not None:
                 print("🌐 Closing ngrok tunnel...")
-                ngrok.disconnect(self.ngrok_tunnel.public_url)
+                try:
+                    ngrok.disconnect(self.ngrok_tunnel.public_url)
+                except Exception as e:
+                    self.logger.warning(f"Failed to disconnect ngrok tunnel: {e}")
                 self.ngrok_tunnel = None
 
             # Find and kill Code Server processes
@@ -711,8 +729,9 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 if SystemUtils.install_package("pyngrok"):
                     print("✅ pyngrok installed successfully!")
                     # Re-import after installation
-                    global ngrok, conf
-                    from pyngrok import ngrok, conf
+                    if not _import_pyngrok():
+                        print("❌ Failed to import pyngrok after installation")
+                        return
                 else:
                     print("❌ Failed to install pyngrok")
                     return
@@ -749,7 +768,10 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 print(f"🔗 Test URL: {test_tunnel.public_url}")
 
                 # Close test tunnel
-                ngrok.disconnect(test_tunnel.public_url)
+                try:
+                    ngrok.disconnect(test_tunnel.public_url)
+                except Exception as disconnect_error:
+                    self.logger.warning(f"Failed to disconnect test tunnel: {disconnect_error}")
 
             except Exception as e:
                 print(f"❌ Ngrok test failed: {e}")
@@ -776,6 +798,11 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 print("❌ Ngrok not configured. Please setup ngrok first.")
                 return
 
+            # Check if pyngrok is available
+            if not PYNGROK_AVAILABLE or ngrok is None or conf is None:
+                print("❌ Pyngrok not available. Please setup ngrok first.")
+                return
+
             print("🌐 Starting ngrok tunnel...")
 
             # Configure ngrok
@@ -792,6 +819,7 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
         except Exception as e:
             self.logger.error(f"Ngrok tunnel failed: {e}")
             print(f"❌ Ngrok tunnel failed: {e}")
+            print("💡 Try running 'Setup Ngrok' from the menu first.")
 
     def configure_settings(self):
         """Configure application settings."""
