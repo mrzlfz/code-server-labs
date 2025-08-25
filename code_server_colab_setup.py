@@ -1562,6 +1562,12 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
                 for file in cache_files:
                     file.unlink()
                 print("✅ Extension cache cleared successfully!")
+            else:
+                print("❌ Cache clearing cancelled")
+
+        except Exception as e:
+            self.logger.error(f"Failed to clear cache: {e}")
+            print(f"❌ Failed to clear cache: {e}")
 
     def configure_extension_registry(self):
         """Configure extension registry (Open VSX vs Microsoft Marketplace)."""
@@ -1753,12 +1759,6 @@ user-data-dir: {self.config.get('code_server.user_data_dir')}
             self.logger.error(f"Failed to update shell profile: {e}")
             print(f"⚠️  Warning: Could not update shell profile: {e}")
             print("💡 You may need to set EXTENSIONS_GALLERY manually")
-            else:
-                print("❌ Cache clearing cancelled")
-
-        except Exception as e:
-            self.logger.error(f"Failed to clear cache: {e}")
-            print(f"❌ Failed to clear cache: {e}")
 
     def show_system_info(self):
         """Show detailed system information."""
