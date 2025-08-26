@@ -72,6 +72,7 @@ BIN_DIR = Path.home() / ".local" / "bin"
 
 # Default configuration
 DEFAULT_CONFIG = {
+    "server_type": "code-server",  # "code-server" or "vscode-server"
     "code_server": {
         "version": "4.23.1",
         "port": 8080,
@@ -80,6 +81,14 @@ DEFAULT_CONFIG = {
         "bind_addr": "127.0.0.1",
         "extensions_dir": str(Path.home() / ".local" / "share" / "code-server" / "extensions"),
         "user_data_dir": str(Path.home() / ".local" / "share" / "code-server")
+    },
+    "vscode_server": {
+        "version": "latest",
+        "tunnel_name": "",
+        "accept_server_license_terms": False,
+        "enable_telemetry": False,
+        "install_dir": str(Path.home() / ".local" / "lib" / "vscode-server"),
+        "bin_path": str(Path.home() / ".local" / "bin" / "code")
     },
     "ngrok": {
         "auth_token": "",
@@ -513,29 +522,53 @@ class CodeServerSetup:
 
             # Show current status
             status = self._get_status()
-            print(f"🔧 Code Server: {status['code_server']}")
-            print(f"🌐 Ngrok: {status['ngrok']}")
-            if status['url']:
-                print(f"🔗 Access URL: {status['url']}")
+            server_type = self.config.get("server_type", "code-server")
+
+            if server_type == "vscode-server":
+                print(f"🔧 VSCode Server: {status['vscode_server']}")
+                if status.get('vscode_tunnel_url'):
+                    print(f"🔗 Tunnel URL: {status['vscode_tunnel_url']}")
+            else:
+                print(f"🔧 Code Server: {status['code_server']}")
+                print(f"🌐 Ngrok: {status['ngrok']}")
+                if status['url']:
+                    print(f"🔗 Access URL: {status['url']}")
             print()
 
-            # Menu options
-            menu_options = [
-                ("1", "🚀 Install Code Server", self.install_code_server),
-                ("2", "▶️  Start Code Server", self.start_code_server),
-                ("3", "⏹️  Stop Code Server", self.stop_code_server),
-                ("4", "🔄 Restart Code Server", self.restart_code_server),
-                ("5", "📊 Show Status", self.show_status),
-                ("6", "⚙️  Configure Settings", self.configure_settings),
-                ("7", "📦 Manage Extensions", self.manage_extensions),
-                ("8", "🔧 Fix Crypto Extensions", self.fix_crypto_extensions),
-                ("9", "🔧 Extension Registry", self.configure_extension_registry),
-                ("10", "🌐 Setup Ngrok", self.setup_ngrok),
-                ("11", "☁️ Setup Cloudflare Tunnel", self.setup_cloudflare_tunnel),
-                ("12", "🔧 System Info", self.show_system_info),
-                ("13", "📋 View Logs", self.view_logs),
-                ("0", "❌ Exit", self._exit_app)
-            ]
+            # Menu options based on server type
+            if server_type == "vscode-server":
+                menu_options = [
+                    ("1", "🚀 Install VSCode Server", self.install_vscode_server),
+                    ("2", "▶️  Start VSCode Server", self.start_vscode_server),
+                    ("3", "⏹️  Stop VSCode Server", self.stop_vscode_server),
+                    ("4", "🔄 Restart VSCode Server", self.restart_vscode_server),
+                    ("5", "📊 Show Status", self.show_status),
+                    ("6", "⚙️  Configure Settings", self.configure_settings),
+                    ("7", "🔄 Switch to Code Server", self._switch_to_code_server),
+                    ("8", "🔧 System Info", self.show_system_info),
+                    ("9", "📋 View Logs", self.view_logs),
+                    ("0", "❌ Exit", self._exit_app)
+                ]
+                max_option = 9
+            else:
+                menu_options = [
+                    ("1", "🚀 Install Code Server", self.install_code_server),
+                    ("2", "▶️  Start Code Server", self.start_code_server),
+                    ("3", "⏹️  Stop Code Server", self.stop_code_server),
+                    ("4", "🔄 Restart Code Server", self.restart_code_server),
+                    ("5", "📊 Show Status", self.show_status),
+                    ("6", "⚙️  Configure Settings", self.configure_settings),
+                    ("7", "📦 Manage Extensions", self.manage_extensions),
+                    ("8", "🔧 Fix Crypto Extensions", self.fix_crypto_extensions),
+                    ("9", "🔧 Extension Registry", self.configure_extension_registry),
+                    ("10", "🌐 Setup Ngrok", self.setup_ngrok),
+                    ("11", "☁️ Setup Cloudflare Tunnel", self.setup_cloudflare_tunnel),
+                    ("12", "🔄 Switch to VSCode Server", self._switch_to_vscode_server),
+                    ("13", "🔧 System Info", self.show_system_info),
+                    ("14", "📋 View Logs", self.view_logs),
+                    ("0", "❌ Exit", self._exit_app)
+                ]
+                max_option = 14
 
             print("📋 Menu Options:")
             for key, description, _ in menu_options:
@@ -543,7 +576,7 @@ class CodeServerSetup:
             print()
 
             try:
-                choice = input("👉 Select option (0-13): ").strip()
+                choice = input(f"👉 Select option (0-{max_option}): ").strip()
 
                 # Find and execute the selected option
                 function_executed = False
@@ -587,26 +620,40 @@ class CodeServerSetup:
 
     def _get_status(self) -> Dict:
         """Get current status of services."""
+        server_type = self.config.get("server_type", "code-server")
+
         status = {
             "code_server": "Not Installed",
+            "vscode_server": "Not Installed",
             "ngrok": "Not Setup",
-            "url": None
+            "url": None,
+            "vscode_tunnel_url": None
         }
 
-        # Check Code Server installation
-        code_server_bin = BIN_DIR / "code-server"
-        if code_server_bin.exists():
-            if self._is_code_server_running():
-                status["code_server"] = "Running"
-            else:
-                status["code_server"] = "Stopped"
+        if server_type == "vscode-server":
+            # Check VSCode Server installation
+            vscode_bin = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+            if vscode_bin.exists():
+                if self._is_vscode_server_running():
+                    status["vscode_server"] = "Running"
+                    status["vscode_tunnel_url"] = self.config.get("vscode_server.tunnel_url", "")
+                else:
+                    status["vscode_server"] = "Stopped"
+        else:
+            # Check Code Server installation
+            code_server_bin = BIN_DIR / "code-server"
+            if code_server_bin.exists():
+                if self._is_code_server_running():
+                    status["code_server"] = "Running"
+                else:
+                    status["code_server"] = "Stopped"
 
-        # Check ngrok status
-        if self.config.get("ngrok.auth_token"):
-            status["ngrok"] = "Configured"
-            if self.ngrok_tunnel:
-                status["ngrok"] = "Active"
-                status["url"] = self.ngrok_tunnel.public_url
+            # Check ngrok status
+            if self.config.get("ngrok.auth_token"):
+                status["ngrok"] = "Configured"
+                if self.ngrok_tunnel:
+                    status["ngrok"] = "Active"
+                    status["url"] = self.ngrok_tunnel.public_url
 
         return status
 
@@ -2110,23 +2157,457 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
         time.sleep(2)
         self.start_code_server()
 
+    # ============================================================================
+    # VSCode Server Methods (Official Microsoft VSCode Server)
+    # ============================================================================
+
+    def install_vscode_server(self):
+        """Install VSCode Server (Official Microsoft CLI)."""
+        print("🚀 Installing VSCode Server (Official Microsoft CLI)...")
+
+        try:
+            # Check if already installed
+            vscode_bin = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+            if vscode_bin.exists():
+                print("✅ VSCode Server CLI already installed")
+                return True
+
+            # Create directories
+            install_dir = Path(self.config.get("vscode_server.install_dir", str(Path.home() / ".local" / "lib" / "vscode-server")))
+            bin_dir = vscode_bin.parent
+            install_dir.mkdir(parents=True, exist_ok=True)
+            bin_dir.mkdir(parents=True, exist_ok=True)
+
+            # Download VSCode CLI
+            if not self._download_vscode_cli():
+                print("❌ Failed to download VSCode CLI")
+                return False
+
+            # Extract and install
+            if not self._extract_vscode_cli():
+                print("❌ Failed to extract VSCode CLI")
+                return False
+
+            print("✅ VSCode Server installed successfully!")
+            print("💡 You can now use 'Start VSCode Server' to create tunnels")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"VSCode Server installation failed: {e}")
+            print(f"❌ Installation failed: {e}")
+            return False
+
+    def _download_vscode_cli(self) -> bool:
+        """Download VSCode CLI binary."""
+        try:
+            # Determine platform and architecture
+            import platform
+            system = platform.system().lower()
+            machine = platform.machine().lower()
+
+            # Map to VSCode CLI naming convention
+            if system == "linux":
+                if machine in ["x86_64", "amd64"]:
+                    platform_name = "cli-linux-x64"
+                elif machine in ["aarch64", "arm64"]:
+                    platform_name = "cli-linux-arm64"
+                elif machine in ["armv7l", "armhf"]:
+                    platform_name = "cli-linux-armhf"
+                else:
+                    platform_name = "cli-linux-x64"  # Default fallback
+            elif system == "darwin":
+                if machine in ["arm64", "aarch64"]:
+                    platform_name = "cli-darwin-arm64"
+                else:
+                    platform_name = "cli-darwin-x64"
+            elif system == "windows":
+                if machine in ["aarch64", "arm64"]:
+                    platform_name = "cli-win32-arm64"
+                else:
+                    platform_name = "cli-win32-x64"
+            else:
+                platform_name = "cli-linux-x64"  # Default fallback
+
+            # Use latest stable version
+            version = self.config.get("vscode_server.version", "latest")
+            if version == "latest":
+                download_url = f"https://code.visualstudio.com/sha/download?build=stable&os={platform_name}"
+            else:
+                download_url = f"https://update.code.visualstudio.com/commit:{version}/{platform_name}/stable"
+
+            print(f"📥 Downloading VSCode CLI for {platform_name}...")
+            print(f"🔗 URL: {download_url}")
+
+            # Download
+            install_dir = Path(self.config.get("vscode_server.install_dir", str(Path.home() / ".local" / "lib" / "vscode-server")))
+            self.vscode_download_path = install_dir / f"vscode-cli-{platform_name}.tar.gz"
+
+            response = requests.get(download_url, stream=True, timeout=300)
+            response.raise_for_status()
+
+            with open(self.vscode_download_path, 'wb') as f:
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded = 0
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            progress = (downloaded / total_size) * 100
+                            print(f"\r📥 Progress: {progress:.1f}%", end="", flush=True)
+
+            print(f"\n✅ Downloaded: {self.vscode_download_path}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"VSCode CLI download failed: {e}")
+            print(f"❌ Download failed: {e}")
+            return False
+
+    def _extract_vscode_cli(self) -> bool:
+        """Extract VSCode CLI archive."""
+        try:
+            install_dir = Path(self.config.get("vscode_server.install_dir", str(Path.home() / ".local" / "lib" / "vscode-server")))
+            bin_path = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+
+            print("📁 Extracting VSCode CLI...")
+
+            with tarfile.open(self.vscode_download_path, 'r:gz') as tar:
+                tar.extractall(install_dir)
+
+            # Find the extracted 'code' binary
+            code_binary = None
+            for root, dirs, files in os.walk(install_dir):
+                if 'code' in files:
+                    potential_binary = Path(root) / 'code'
+                    if potential_binary.is_file() and os.access(potential_binary, os.X_OK):
+                        code_binary = potential_binary
+                        break
+
+            if not code_binary:
+                print("❌ Could not find 'code' binary in extracted files")
+                return False
+
+            # Create symlink or copy to bin directory
+            if bin_path.exists():
+                bin_path.unlink()
+
+            # Try to create symlink first, fallback to copy
+            try:
+                bin_path.symlink_to(code_binary)
+                print(f"🔗 Created symlink: {bin_path} -> {code_binary}")
+            except OSError:
+                # Fallback to copy if symlink fails
+                import shutil
+                shutil.copy2(code_binary, bin_path)
+                bin_path.chmod(0o755)
+                print(f"📋 Copied binary: {bin_path}")
+
+            # Clean up download
+            if self.vscode_download_path.exists():
+                self.vscode_download_path.unlink()
+
+            print("✅ VSCode CLI extracted successfully!")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"VSCode CLI extraction failed: {e}")
+            print(f"❌ Extraction failed: {e}")
+            return False
+
+    def start_vscode_server(self):
+        """Start VSCode Server with tunnel."""
+        print("▶️  Starting VSCode Server...")
+
+        try:
+            # Check if VSCode CLI is installed
+            vscode_bin = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+            if not vscode_bin.exists():
+                print("❌ VSCode CLI not found. Please install VSCode Server first.")
+                return False
+
+            # Check if already running
+            if self._is_vscode_server_running():
+                print("⚠️  VSCode Server is already running")
+                self._show_vscode_server_status()
+                return True
+
+            # Accept license terms if configured
+            if self.config.get("vscode_server.accept_server_license_terms", False):
+                os.environ['VSCODE_SERVER_ACCEPT_LICENSE'] = '1'
+
+            # Configure telemetry
+            if not self.config.get("vscode_server.enable_telemetry", False):
+                os.environ['VSCODE_DISABLE_TELEMETRY'] = '1'
+
+            # Get tunnel name
+            tunnel_name = self.config.get("vscode_server.tunnel_name", "")
+            if not tunnel_name:
+                tunnel_name = f"colab-{int(time.time())}"
+                self.config.set("vscode_server.tunnel_name", tunnel_name)
+
+            print(f"🚇 Creating tunnel: {tunnel_name}")
+            print("🔐 You'll need to authenticate with Microsoft/GitHub account")
+            print("💡 A browser window will open for authentication")
+
+            # Start VSCode Server tunnel
+            cmd = [str(vscode_bin), "tunnel", "--name", tunnel_name, "--accept-server-license-terms"]
+
+            print(f"🚀 Starting: {' '.join(cmd)}")
+
+            self.vscode_server_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+
+            # Wait for tunnel to be established
+            print("⏳ Waiting for tunnel to be established...")
+            tunnel_url = None
+            start_time = time.time()
+            timeout = 120  # 2 minutes timeout
+
+            while time.time() - start_time < timeout:
+                if self.vscode_server_process.poll() is not None:
+                    # Process ended unexpectedly
+                    stdout, stderr = self.vscode_server_process.communicate()
+                    print(f"❌ VSCode Server process ended unexpectedly")
+                    if stderr:
+                        print(f"Error: {stderr}")
+                    return False
+
+                # Check for tunnel URL in output
+                try:
+                    line = self.vscode_server_process.stdout.readline()
+                    if line:
+                        print(f"📝 {line.strip()}")
+                        if "vscode.dev/tunnel" in line:
+                            # Extract tunnel URL
+                            import re
+                            url_match = re.search(r'https://[^\s]+', line)
+                            if url_match:
+                                tunnel_url = url_match.group()
+                                break
+                except:
+                    pass
+
+                time.sleep(1)
+
+            if tunnel_url:
+                print("✅ VSCode Server tunnel started successfully!")
+                print(f"🌐 Access URL: {tunnel_url}")
+                print("\n💡 How to connect:")
+                print("   • Web: Open the URL above in your browser")
+                print("   • Desktop: Install 'Remote - Tunnels' extension in VSCode")
+                print("   • Desktop: Use 'Remote-Tunnels: Connect to Tunnel' command")
+                print(f"   • Tunnel name: {tunnel_name}")
+
+                # Store tunnel info
+                self.config.set("vscode_server.tunnel_url", tunnel_url)
+                self.config.set("vscode_server.process_pid", self.vscode_server_process.pid)
+
+                return True
+            else:
+                print("⚠️  Tunnel URL not detected, but process is running")
+                print("💡 Check the process output for authentication instructions")
+                return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to start VSCode Server: {e}")
+            print(f"❌ Failed to start VSCode Server: {e}")
+            return False
+
+    def stop_vscode_server(self):
+        """Stop VSCode Server tunnel."""
+        print("⏹️  Stopping VSCode Server...")
+
+        try:
+            stopped = False
+
+            # Try to stop the process we started
+            if hasattr(self, 'vscode_server_process') and self.vscode_server_process:
+                try:
+                    self.vscode_server_process.terminate()
+                    self.vscode_server_process.wait(timeout=10)
+                    stopped = True
+                    print("✅ VSCode Server process stopped")
+                except subprocess.TimeoutExpired:
+                    self.vscode_server_process.kill()
+                    stopped = True
+                    print("✅ VSCode Server process killed")
+                except:
+                    pass
+
+            # Fallback: find and stop VSCode tunnel processes
+            if not stopped:
+                if PSUTIL_AVAILABLE:
+                    import psutil
+                    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                        try:
+                            if proc.info['name'] == 'code' and proc.info['cmdline']:
+                                cmdline = ' '.join(proc.info['cmdline'])
+                                if 'tunnel' in cmdline:
+                                    proc.terminate()
+                                    stopped = True
+                                    print(f"✅ Stopped VSCode tunnel process (PID: {proc.info['pid']})")
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            continue
+
+            # Clear stored info
+            self.config.set("vscode_server.tunnel_url", "")
+            self.config.set("vscode_server.process_pid", 0)
+
+            if stopped:
+                print("✅ VSCode Server stopped successfully")
+            else:
+                print("⚠️  No VSCode Server processes found to stop")
+
+            return stopped
+
+        except Exception as e:
+            self.logger.error(f"Failed to stop VSCode Server: {e}")
+            print(f"❌ Failed to stop VSCode Server: {e}")
+            return False
+
+    def restart_vscode_server(self):
+        """Restart VSCode Server."""
+        print("🔄 Restarting VSCode Server...")
+        self.stop_vscode_server()
+        time.sleep(2)
+        self.start_vscode_server()
+
+    def _is_vscode_server_running(self) -> bool:
+        """Check if VSCode Server tunnel is running."""
+        try:
+            if PSUTIL_AVAILABLE:
+                import psutil
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if proc.info['name'] == 'code' and proc.info['cmdline']:
+                            cmdline = ' '.join(proc.info['cmdline'])
+                            if 'tunnel' in cmdline:
+                                return True
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+            else:
+                # Fallback method
+                result = subprocess.run(
+                    ["pgrep", "-f", "code.*tunnel"],
+                    capture_output=True,
+                    text=True
+                )
+                return result.returncode == 0
+
+        except Exception:
+            pass
+
+        return False
+
+    def _show_vscode_server_status(self):
+        """Show VSCode Server status information."""
+        tunnel_url = self.config.get("vscode_server.tunnel_url", "")
+        tunnel_name = self.config.get("vscode_server.tunnel_name", "")
+
+        print("\n📊 VSCode Server Status:")
+        print(f"   • Status: {'🟢 Running' if self._is_vscode_server_running() else '🔴 Stopped'}")
+        if tunnel_name:
+            print(f"   • Tunnel Name: {tunnel_name}")
+        if tunnel_url:
+            print(f"   • Access URL: {tunnel_url}")
+        else:
+            print("   • Access URL: Not available")
+
+        print(f"\n💡 Connection Options:")
+        print(f"   • Web Browser: Use the access URL above")
+        print(f"   • Desktop VSCode: Install 'Remote - Tunnels' extension")
+        print(f"   • Desktop VSCode: Use 'Remote-Tunnels: Connect to Tunnel' command")
+
+    def _switch_to_vscode_server(self):
+        """Switch from code-server to VSCode Server."""
+        print("🔄 Switching to VSCode Server (Official Microsoft)...")
+        print("\n📋 About VSCode Server:")
+        print("   • Official Microsoft VSCode Server")
+        print("   • Works with desktop VSCode Remote extensions")
+        print("   • Built-in tunnel support")
+        print("   • Microsoft/GitHub authentication")
+        print("   • Direct marketplace access")
+
+        confirm = input("\n❓ Switch to VSCode Server? (y/N): ").strip().lower()
+        if confirm == 'y':
+            # Stop current code-server if running
+            if self._is_code_server_running():
+                print("⏹️  Stopping current Code Server...")
+                self.stop_code_server()
+
+            # Update configuration
+            self.config.set("server_type", "vscode-server")
+            print("✅ Switched to VSCode Server mode")
+            print("💡 Use 'Install VSCode Server' to get started")
+        else:
+            print("❌ Switch cancelled")
+
+    def _switch_to_code_server(self):
+        """Switch from VSCode Server to code-server."""
+        print("🔄 Switching to Code Server (Web-based)...")
+        print("\n📋 About Code Server:")
+        print("   • Third-party web-based VSCode")
+        print("   • Runs entirely in browser")
+        print("   • Password authentication")
+        print("   • Extension management via UI")
+        print("   • Ngrok/Cloudflare tunnel support")
+
+        confirm = input("\n❓ Switch to Code Server? (y/N): ").strip().lower()
+        if confirm == 'y':
+            # Stop current VSCode Server if running
+            if self._is_vscode_server_running():
+                print("⏹️  Stopping current VSCode Server...")
+                self.stop_vscode_server()
+
+            # Update configuration
+            self.config.set("server_type", "code-server")
+            print("✅ Switched to Code Server mode")
+            print("💡 Use 'Install Code Server' to get started")
+        else:
+            print("❌ Switch cancelled")
+
     def show_status(self):
         """Show detailed status information."""
         print("📊 System Status")
         print("=" * 50)
 
         status = self._get_status()
+        server_type = self.config.get("server_type", "code-server")
 
-        print(f"🔧 Code Server: {status['code_server']}")
-        print(f"🌐 Ngrok: {status['ngrok']}")
+        print(f"🔧 Server Type: {server_type}")
 
-        if status['url']:
-            print(f"🔗 Access URL: {status['url']}")
+        if server_type == "vscode-server":
+            print(f"🔧 VSCode Server: {status['vscode_server']}")
+
+            tunnel_url = status.get('vscode_tunnel_url')
+            if tunnel_url:
+                print(f"🔗 Tunnel URL: {tunnel_url}")
+            else:
+                print(f"🔗 Tunnel URL: Not available")
+
+            tunnel_name = self.config.get("vscode_server.tunnel_name", "")
+            if tunnel_name:
+                print(f"🚇 Tunnel Name: {tunnel_name}")
+
+            print(f"🔐 Authentication: Microsoft/GitHub account")
         else:
-            port = self.config.get('code_server.port', 8080)
-            print(f"🔗 Local URL: http://127.0.0.1:{port}")
+            print(f"🔧 Code Server: {status['code_server']}")
+            print(f"🌐 Ngrok: {status['ngrok']}")
 
-        print(f"🔑 Password: {self.config.get('code_server.password', 'Not set')}")
+            if status['url']:
+                print(f"🔗 Access URL: {status['url']}")
+            else:
+                port = self.config.get('code_server.port', 8080)
+                print(f"🔗 Local URL: http://127.0.0.1:{port}")
+
+            print(f"🔑 Password: {self.config.get('code_server.password', 'Not set')}")
 
         # System info
         print("\n💻 System Information:")

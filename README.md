@@ -1,16 +1,18 @@
 # Code Server Colab Setup
 
-A comprehensive Python script to set up VS Code Server on Google Colab with ngrok tunneling, full features, and interactive menu system.
+A comprehensive Python script to set up VS Code Server on Google Colab with multiple server options, tunneling, and desktop VSCode integration.
 
 ## 🚀 Features
 
+- **Dual Server Support**: Choose between Code Server (web-based) or VSCode Server (official Microsoft)
+- **Desktop VSCode Integration**: Connect with desktop VSCode using Remote-Tunnels extension
 - **Interactive CLI Menu**: User-friendly command-line interface with menu-driven options
-- **Code Server Installation**: Automated installation without systemd dependency
-- **Ngrok Tunneling**: Secure web access through ngrok tunnels
+- **Multiple Installation Options**: Automated installation without systemd dependency
+- **Tunneling Support**: Ngrok, Cloudflare, and built-in VSCode tunnels
 - **Extensions Management**: Install, update, and manage VS Code extensions
 - **Google Colab Optimized**: Specifically designed for Google Colab environment
 - **Configuration Persistence**: Save and restore settings across sessions
-- **Process Management**: Start, stop, restart, and monitor Code Server
+- **Process Management**: Start, stop, restart, and monitor servers
 - **Comprehensive Logging**: Detailed logging and error handling
 
 ## 📋 Requirements
@@ -18,7 +20,8 @@ A comprehensive Python script to set up VS Code Server on Google Colab with ngro
 - Python 3.6+
 - Internet connection
 - Google Colab environment (recommended)
-- Ngrok account (free tier available)
+- For Code Server: Ngrok account (free tier available)
+- For VSCode Server: Microsoft/GitHub account for authentication
 
 ## 🛠️ Installation
 
@@ -92,27 +95,54 @@ python3 code_server_colab_setup.py --config
    - Enter the token when prompted
 3. **Start Code Server** by selecting option `2`
 
-### 2. Accessing Code Server
+### 2. Choosing Server Type
 
-Once started, you'll see:
+The script supports two server types:
+
+#### Code Server (Web-based)
+- Third-party web-based VSCode
+- Runs entirely in browser
+- Password authentication
+- Ngrok/Cloudflare tunnel support
+
+#### VSCode Server (Official Microsoft)
+- Official Microsoft VSCode Server
+- Works with desktop VSCode Remote extensions
+- Built-in tunnel support
+- Microsoft/GitHub authentication
+
+### 3. Accessing Your Server
+
+#### Code Server Access:
 - **Local URL**: `http://127.0.0.1:8080` (if running locally)
 - **Ngrok URL**: `https://xxxxx.ngrok.io` (for web access)
 - **Password**: Automatically generated or custom set
 
-### 3. Installing Extensions
+#### VSCode Server Access:
+- **Tunnel URL**: `https://vscode.dev/tunnel/your-tunnel-name`
+- **Desktop VSCode**: Install 'Remote - Tunnels' extension
+- **Authentication**: Microsoft/GitHub account
+
+### 4. Installing Extensions (Code Server only)
 
 Select option `7` to manage extensions:
 - **Popular Extensions**: Installs common development extensions
 - **Custom Extensions**: Install specific extensions by ID
 - **Extension Management**: List, update, or remove extensions
 
-### 4. Configuration
+### 5. Configuration
 
 Select option `6` to configure:
-- **Code Server Settings**: Port, password, authentication
-- **Ngrok Settings**: Auth token, region
-- **Extension Settings**: Manage extension lists
-- **System Settings**: Colab optimizations
+- **Server Settings**: Port, password, authentication (Code Server)
+- **Tunnel Settings**: Tunnel name, authentication (VSCode Server)
+- **Ngrok Settings**: Auth token, region (Code Server)
+- **System Settings**: Server type, optimizations
+
+### 6. Switching Between Server Types
+
+Use the menu options to switch:
+- **Switch to VSCode Server**: For desktop VSCode integration
+- **Switch to Code Server**: For web-based access
 
 ## 🔧 Configuration
 
