@@ -2268,28 +2268,104 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             return False
 
     def _extract_vscode_cli(self) -> bool:
-        """Extract VSCode CLI archive."""
+        """Extract VSCode CLI archive with enhanced binary detection."""
         try:
             install_dir = Path(self.config.get("vscode_server.install_dir", str(Path.home() / ".local" / "lib" / "vscode-server")))
             bin_path = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
 
             print("📁 Extracting VSCode CLI...")
 
+            # Extract the archive
             with tarfile.open(self.vscode_download_path, 'r:gz') as tar:
                 tar.extractall(install_dir)
 
-            # Find the extracted 'code' binary
-            code_binary = None
+            # Debug: List extracted contents
+            print("🔍 Listing extracted contents for debugging...")
+            extracted_files = []
             for root, dirs, files in os.walk(install_dir):
-                if 'code' in files:
-                    potential_binary = Path(root) / 'code'
-                    if potential_binary.is_file() and os.access(potential_binary, os.X_OK):
-                        code_binary = potential_binary
+                for file in files:
+                    file_path = Path(root) / file
+                    is_executable = os.access(file_path, os.X_OK)
+                    size = file_path.stat().st_size if file_path.exists() else 0
+                    extracted_files.append((str(file_path.relative_to(install_dir)), is_executable, size))
+                    print(f"  📄 {file_path.relative_to(install_dir)} (executable: {is_executable}, size: {size})")
+
+            # Enhanced binary search with multiple patterns
+            code_binary = None
+            binary_patterns = [
+                'code',           # Standard VSCode CLI
+                'vscode',         # Alternative name
+                'code-server',    # Code server binary
+                'code.exe',       # Windows executable
+                'vscode.exe',     # Windows alternative
+            ]
+
+            print("🔍 Searching for VSCode binary...")
+
+            # First, try exact name matches
+            for root, dirs, files in os.walk(install_dir):
+                for pattern in binary_patterns:
+                    if pattern in files:
+                        potential_binary = Path(root) / pattern
+                        if potential_binary.is_file():
+                            # Check if it's executable or make it executable
+                            if not os.access(potential_binary, os.X_OK):
+                                try:
+                                    potential_binary.chmod(0o755)
+                                    print(f"🔧 Made file executable: {potential_binary}")
+                                except:
+                                    continue
+
+                            if os.access(potential_binary, os.X_OK):
+                                code_binary = potential_binary
+                                print(f"✅ Found binary: {code_binary}")
+                                break
+
+                if code_binary:
+                    break
+
+            # If not found, try to find any executable file that might be the CLI
+            if not code_binary:
+                print("🔍 Searching for any executable files...")
+                for root, dirs, files in os.walk(install_dir):
+                    for file in files:
+                        file_path = Path(root) / file
+                        if file_path.is_file():
+                            # Check if it's executable or try to make it executable
+                            if not os.access(file_path, os.X_OK):
+                                try:
+                                    file_path.chmod(0o755)
+                                except:
+                                    continue
+
+                            if os.access(file_path, os.X_OK) and file_path.stat().st_size > 1000:  # Reasonable size check
+                                print(f"🔍 Found potential binary: {file_path} (size: {file_path.stat().st_size})")
+                                # Test if it's the VSCode CLI by checking if it responds to --version
+                                try:
+                                    result = subprocess.run([str(file_path), '--version'],
+                                                          capture_output=True, text=True, timeout=10)
+                                    if result.returncode == 0 and ('code' in result.stdout.lower() or 'visual studio code' in result.stdout.lower()):
+                                        code_binary = file_path
+                                        print(f"✅ Verified VSCode binary: {code_binary}")
+                                        break
+                                except:
+                                    continue
+
+                    if code_binary:
                         break
 
+            # If still not found, provide detailed error information
             if not code_binary:
-                print("❌ Could not find 'code' binary in extracted files")
-                return False
+                print("❌ Could not find VSCode binary in extracted files")
+                print("📋 Extracted files summary:")
+                for file_info in extracted_files[:10]:  # Show first 10 files
+                    print(f"  - {file_info[0]} (executable: {file_info[1]}, size: {file_info[2]})")
+                if len(extracted_files) > 10:
+                    print(f"  ... and {len(extracted_files) - 10} more files")
+
+                # Try alternative approach - maybe it's a different archive format
+                print("🔄 Trying alternative extraction method...")
+                return self._try_alternative_vscode_installation()
 
             # Create symlink or copy to bin directory
             if bin_path.exists():
@@ -2306,6 +2382,17 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                 bin_path.chmod(0o755)
                 print(f"📋 Copied binary: {bin_path}")
 
+            # Verify the installation
+            try:
+                result = subprocess.run([str(bin_path), '--version'],
+                                      capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    print(f"✅ VSCode CLI verification successful: {result.stdout.strip()}")
+                else:
+                    print(f"⚠️  VSCode CLI verification failed: {result.stderr}")
+            except Exception as e:
+                print(f"⚠️  Could not verify VSCode CLI: {e}")
+
             # Clean up download
             if self.vscode_download_path.exists():
                 self.vscode_download_path.unlink()
@@ -2316,6 +2403,212 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
         except Exception as e:
             self.logger.error(f"VSCode CLI extraction failed: {e}")
             print(f"❌ Extraction failed: {e}")
+            return False
+
+    def _try_alternative_vscode_installation(self) -> bool:
+        """Try alternative VSCode installation methods."""
+        try:
+            print("🔄 Attempting alternative VSCode installation...")
+
+            # Method 1: Try direct download of standalone binary
+            print("📥 Method 1: Trying direct binary download...")
+            if self._download_vscode_standalone():
+                return True
+
+            # Method 2: Try using curl/wget to download
+            print("📥 Method 2: Trying curl/wget download...")
+            if self._download_vscode_with_curl():
+                return True
+
+            # Method 3: Try installing via package manager if available
+            print("📦 Method 3: Trying package manager installation...")
+            if self._install_vscode_via_package_manager():
+                return True
+
+            print("❌ All alternative installation methods failed")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Alternative installation failed: {e}")
+            print(f"❌ Alternative installation failed: {e}")
+            return False
+
+    def _download_vscode_standalone(self) -> bool:
+        """Try downloading VSCode as a standalone binary."""
+        try:
+            # Try different URL patterns
+            urls_to_try = [
+                "https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64",
+                "https://update.code.visualstudio.com/latest/server-linux-x64/stable",
+                "https://github.com/microsoft/vscode/releases/latest/download/code-stable-linux-x64.tar.gz"
+            ]
+
+            install_dir = Path(self.config.get("vscode_server.install_dir", str(Path.home() / ".local" / "lib" / "vscode-server")))
+            bin_path = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+
+            for url in urls_to_try:
+                try:
+                    print(f"🔗 Trying URL: {url}")
+                    response = requests.get(url, stream=True, timeout=60)
+                    response.raise_for_status()
+
+                    # Save to temporary file
+                    temp_file = install_dir / "vscode-temp.tar.gz"
+                    with open(temp_file, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+
+                    # Try to extract
+                    with tarfile.open(temp_file, 'r:gz') as tar:
+                        tar.extractall(install_dir)
+
+                    # Look for binary again
+                    for root, _, files in os.walk(install_dir):
+                        for file in files:
+                            if file in ['code', 'vscode', 'code-server']:
+                                file_path = Path(root) / file
+                                if file_path.is_file():
+                                    file_path.chmod(0o755)
+
+                                    # Test the binary
+                                    try:
+                                        result = subprocess.run([str(file_path), '--version'],
+                                                              capture_output=True, text=True, timeout=10)
+                                        if result.returncode == 0:
+                                            # Copy to bin directory
+                                            if bin_path.exists():
+                                                bin_path.unlink()
+                                            shutil.copy2(file_path, bin_path)
+                                            bin_path.chmod(0o755)
+
+                                            # Clean up
+                                            temp_file.unlink()
+
+                                            print(f"✅ Successfully installed VSCode CLI from {url}")
+                                            return True
+                                    except:
+                                        continue
+
+                    # Clean up failed attempt
+                    temp_file.unlink()
+
+                except Exception as e:
+                    print(f"❌ Failed with URL {url}: {e}")
+                    continue
+
+            return False
+
+        except Exception as e:
+            print(f"❌ Standalone download failed: {e}")
+            return False
+
+    def _download_vscode_with_curl(self) -> bool:
+        """Try downloading VSCode using curl or wget."""
+        try:
+            install_dir = Path(self.config.get("vscode_server.install_dir", str(Path.home() / ".local" / "lib" / "vscode-server")))
+            bin_path = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+
+            # Try curl first
+            curl_commands = [
+                ["curl", "-L", "-o", str(install_dir / "vscode-cli.tar.gz"),
+                 "https://update.code.visualstudio.com/latest/cli-linux-x64/stable"],
+                ["wget", "-O", str(install_dir / "vscode-cli.tar.gz"),
+                 "https://update.code.visualstudio.com/latest/cli-linux-x64/stable"]
+            ]
+
+            for cmd in curl_commands:
+                try:
+                    print(f"🔄 Trying: {' '.join(cmd)}")
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+                    if result.returncode == 0:
+                        # Try to extract
+                        download_file = install_dir / "vscode-cli.tar.gz"
+                        if download_file.exists():
+                            with tarfile.open(download_file, 'r:gz') as tar:
+                                tar.extractall(install_dir)
+
+                            # Look for binary
+                            for root, _, files in os.walk(install_dir):
+                                for file in files:
+                                    if file == 'code':
+                                        file_path = Path(root) / file
+                                        if file_path.is_file():
+                                            file_path.chmod(0o755)
+
+                                            # Copy to bin directory
+                                            if bin_path.exists():
+                                                bin_path.unlink()
+                                            shutil.copy2(file_path, bin_path)
+                                            bin_path.chmod(0o755)
+
+                                            # Clean up
+                                            download_file.unlink()
+
+                                            print(f"✅ Successfully downloaded with {cmd[0]}")
+                                            return True
+
+                            download_file.unlink()
+
+                except Exception as e:
+                    print(f"❌ {cmd[0]} failed: {e}")
+                    continue
+
+            return False
+
+        except Exception as e:
+            print(f"❌ Curl/wget download failed: {e}")
+            return False
+
+    def _install_vscode_via_package_manager(self) -> bool:
+        """Try installing VSCode via system package manager."""
+        try:
+            bin_path = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+
+            # Try different package managers
+            package_commands = [
+                # Snap
+                ["snap", "install", "code", "--classic"],
+                # APT (Ubuntu/Debian)
+                ["apt", "update", "&&", "apt", "install", "-y", "code"],
+                # YUM (CentOS/RHEL)
+                ["yum", "install", "-y", "code"],
+                # DNF (Fedora)
+                ["dnf", "install", "-y", "code"]
+            ]
+
+            for cmd in package_commands:
+                try:
+                    print(f"🔄 Trying package manager: {' '.join(cmd)}")
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+                    if result.returncode == 0:
+                        # Check if code is now available
+                        code_locations = [
+                            "/snap/bin/code",
+                            "/usr/bin/code",
+                            "/usr/local/bin/code"
+                        ]
+
+                        for location in code_locations:
+                            if Path(location).exists():
+                                # Create symlink
+                                if bin_path.exists():
+                                    bin_path.unlink()
+                                bin_path.symlink_to(Path(location))
+
+                                print(f"✅ Successfully installed via package manager")
+                                return True
+
+                except Exception as e:
+                    print(f"❌ Package manager {cmd[0]} failed: {e}")
+                    continue
+
+            return False
+
+        except Exception as e:
+            print(f"❌ Package manager installation failed: {e}")
             return False
 
     def start_vscode_server(self):
