@@ -2373,18 +2373,15 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                     print("\n❌ Operation cancelled")
                     return False
 
-            # Start VSCode Server tunnel with specified authentication provider
+            # Start VSCode Server tunnel (authentication provider is selected interactively)
             cmd = [
                 str(vscode_bin), "tunnel",
                 "--name", tunnel_name,
                 "--accept-server-license-terms"
             ]
 
-            # Add authentication provider if specified
-            if auth_provider == "microsoft":
-                cmd.extend(["--provider", "microsoft"])
-            elif auth_provider == "github":
-                cmd.extend(["--provider", "github"])
+            # Note: --provider flag doesn't exist in VSCode CLI
+            # Authentication provider is selected via interactive prompt
 
             print(f"🚀 Starting: {' '.join(cmd)}")
             print("⚠️  Note: This process requires interactive authentication!")
