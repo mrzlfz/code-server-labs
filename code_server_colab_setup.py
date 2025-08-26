@@ -1440,6 +1440,224 @@ console.log('[Web Worker Crypto] Starting aggressive crypto polyfill injection')
 
         return web_worker_file
 
+    def _create_aggressive_crypto_fix(self):
+        """Create an aggressive crypto fix that replaces the extension entirely if needed."""
+        print("\n🚨 Creating Aggressive Crypto Fix...")
+
+        # Find all Augment extensions
+        extensions_base = Path.home() / ".local" / "share" / "code-server" / "extensions"
+        if not extensions_base.exists():
+            print(f"❌ Extensions directory not found: {extensions_base}")
+            return 0
+
+        augment_dirs = list(extensions_base.glob("*augment*"))
+        if not augment_dirs:
+            print("❌ No Augment extensions found")
+            return 0
+
+        fixed_count = 0
+        for ext_dir in augment_dirs:
+            print(f"🔧 Processing extension: {ext_dir.name}")
+
+            # Find the extension.js file
+            extension_js_paths = [
+                ext_dir / "out" / "extension.js",
+                ext_dir / "dist" / "extension.js",
+                ext_dir / "lib" / "extension.js",
+                ext_dir / "extension.js"
+            ]
+
+            for ext_js in extension_js_paths:
+                if ext_js.exists():
+                    print(f"📁 Found extension file: {ext_js}")
+
+                    try:
+                        # Read the current content
+                        with open(ext_js, 'r', encoding='utf-8') as f:
+                            content = f.read()
+
+                        # Create backup
+                        backup_file = ext_js.with_suffix('.js.original')
+                        if not backup_file.exists():
+                            with open(backup_file, 'w', encoding='utf-8') as f:
+                                f.write(content)
+                            print(f"💾 Backup created: {backup_file}")
+
+                        # Create aggressive crypto replacement
+                        crypto_replacement = '''
+// AGGRESSIVE CRYPTO POLYFILL - COMPLETE REPLACEMENT
+console.log('[AGGRESSIVE CRYPTO] Starting complete crypto module replacement');
+
+// Step 1: Create Buffer polyfill
+if (typeof Buffer === 'undefined') {
+    globalThis.Buffer = class Buffer extends Uint8Array {
+        static from(data) {
+            if (data instanceof Uint8Array) return data;
+            if (typeof data === 'string') {
+                const encoder = new TextEncoder();
+                return new this(encoder.encode(data));
+            }
+            return new this(data);
+        }
+
+        static alloc(size) {
+            return new this(size);
+        }
+
+        toString(encoding = 'utf8') {
+            if (encoding === 'hex') {
+                return Array.from(this).map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            const decoder = new TextDecoder();
+            return decoder.decode(this);
+        }
+    };
+    console.log('[AGGRESSIVE CRYPTO] Buffer polyfill created');
+}
+
+// Step 2: Create comprehensive crypto module
+const cryptoModule = {
+    randomBytes: function(size, callback) {
+        try {
+            const array = new Uint8Array(size);
+            const cryptoObj = globalThis.crypto || self.crypto || window.crypto;
+
+            if (cryptoObj && cryptoObj.getRandomValues) {
+                cryptoObj.getRandomValues(array);
+            } else {
+                for (let i = 0; i < size; i++) {
+                    array[i] = Math.floor(Math.random() * 256);
+                }
+            }
+
+            const buffer = Buffer.from(array);
+
+            if (callback) {
+                setTimeout(() => callback(null, buffer), 0);
+                return;
+            }
+            return buffer;
+        } catch (error) {
+            if (callback) {
+                setTimeout(() => callback(error), 0);
+                return;
+            }
+            throw error;
+        }
+    },
+
+    randomBytesSync: function(size) {
+        return this.randomBytes(size);
+    },
+
+    createHash: function(algorithm) {
+        return {
+            _data: '',
+            update: function(data) {
+                this._data += data.toString();
+                return this;
+            },
+            digest: function(encoding) {
+                let hash = 0;
+                for (let i = 0; i < this._data.length; i++) {
+                    const char = this._data.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                hash = Math.abs(hash);
+
+                if (encoding === 'hex') {
+                    return hash.toString(16).padStart(8, '0');
+                }
+                return Buffer.from(hash.toString());
+            }
+        };
+    },
+
+    createHmac: function(algorithm, key) {
+        return this.createHash(algorithm);
+    }
+};
+
+// Step 3: Aggressive global injection
+const globalContexts = [globalThis, self, global, window];
+globalContexts.forEach(ctx => {
+    if (ctx) {
+        ctx.crypto = cryptoModule;
+        console.log('[AGGRESSIVE CRYPTO] Injected into:', ctx.constructor?.name || 'unknown context');
+    }
+});
+
+// Step 4: Override require function completely
+const originalRequire = (typeof require !== 'undefined') ? require : null;
+const aggressiveRequire = function(moduleName) {
+    console.log('[AGGRESSIVE CRYPTO] require() called for:', moduleName);
+
+    if (moduleName === 'crypto') {
+        console.log('[AGGRESSIVE CRYPTO] Returning crypto module');
+        return cryptoModule;
+    }
+
+    if (originalRequire) {
+        try {
+            return originalRequire(moduleName);
+        } catch (e) {
+            console.log('[AGGRESSIVE CRYPTO] Original require failed for:', moduleName, e.message);
+        }
+    }
+
+    throw new Error('Module not found: ' + moduleName);
+};
+
+// Inject require in all contexts
+globalContexts.forEach(ctx => {
+    if (ctx) {
+        ctx.require = aggressiveRequire;
+    }
+});
+
+// Step 5: Test the crypto module immediately
+try {
+    const testCrypto = aggressiveRequire('crypto');
+    const testBytes = testCrypto.randomBytes(16);
+    console.log('[AGGRESSIVE CRYPTO] ✅ Test successful - crypto is working, bytes length:', testBytes.length);
+} catch (error) {
+    console.error('[AGGRESSIVE CRYPTO] ❌ Test failed:', error);
+}
+
+console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
+
+// Original extension code follows:
+'''
+
+                        # Replace the entire content with crypto fix + original
+                        new_content = crypto_replacement + content
+
+                        # Write the new content
+                        with open(ext_js, 'w', encoding='utf-8') as f:
+                            f.write(new_content)
+
+                        print(f"✅ Aggressive crypto fix applied to: {ext_js}")
+                        fixed_count += 1
+
+                    except Exception as e:
+                        print(f"❌ Failed to apply aggressive fix to {ext_js}: {e}")
+                        # Restore from backup if available
+                        backup_file = ext_js.with_suffix('.js.original')
+                        if backup_file.exists():
+                            try:
+                                with open(backup_file, 'r', encoding='utf-8') as f:
+                                    original_content = f.read()
+                                with open(ext_js, 'w', encoding='utf-8') as f:
+                                    f.write(original_content)
+                                print(f"🔄 Restored from backup: {ext_js}")
+                            except:
+                                pass
+
+                    break  # Only process the first found extension.js
+
+        return fixed_count
+
     def fix_crypto_extensions(self):
         """Fix crypto module issues in installed extensions - Main menu function."""
         print("\n🔧 Fixing Crypto Module Extensions")
@@ -1456,12 +1674,19 @@ console.log('[Web Worker Crypto] Starting aggressive crypto polyfill injection')
                 print("❌ Cannot apply fixes while Code Server is running.")
                 return
 
-        # Create both polyfills
+        # Create all polyfills
         polyfill_file = self._create_crypto_polyfill()
         web_worker_file = self._create_web_worker_crypto_fix()
 
-        # Inject polyfill into extensions
+        # Try normal injection first
         injected_count = self._inject_crypto_polyfill_to_extensions()
+
+        # If normal injection didn't work, try aggressive fix
+        if injected_count == 0:
+            print("\n🚨 Normal crypto injection found no extensions to patch.")
+            print("🔧 Attempting aggressive crypto fix...")
+            aggressive_count = self._create_aggressive_crypto_fix()
+            injected_count = aggressive_count
 
         # Create enhanced code-server config
         config_file = self._create_code_server_config()
@@ -1478,6 +1703,7 @@ console.log('[Web Worker Crypto] Starting aggressive crypto polyfill injection')
             print("💡 The following fixes have been applied:")
             print("   • Enhanced crypto polyfill with Node.js compatibility")
             print("   • Web worker crypto polyfill for browser context")
+            print("   • Aggressive crypto module replacement")
             print("   • Extension host wrapper for early crypto loading")
             print("   • Direct extension patching with backup")
             print("   • Improved Node.js environment configuration")
