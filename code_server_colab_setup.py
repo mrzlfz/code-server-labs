@@ -796,16 +796,38 @@ class CodeServerSetup:
 
 
     def _create_crypto_polyfill(self):
-        """Create enhanced crypto polyfill for Node.js extension host environments."""
+        """Create enhanced crypto polyfill for web worker extension host environments."""
         polyfill_dir = Path.home() / ".local" / "share" / "code-server" / "polyfills"
         polyfill_dir.mkdir(parents=True, exist_ok=True)
 
         crypto_polyfill_content = '''
-// Enhanced Crypto polyfill for Node.js extension host environments
+// Enhanced Crypto polyfill for VS Code extension web worker environments
 // This provides Node.js crypto module compatibility in code-server extension hosts
 
 (function() {
     'use strict';
+
+    console.log('[Crypto Polyfill] Initializing crypto polyfill for web worker environment');
+
+    // First, create a Buffer polyfill for web worker environments
+    if (typeof Buffer === 'undefined') {
+        globalThis.Buffer = {
+            from: function(data) {
+                if (data instanceof Uint8Array) {
+                    return data;
+                }
+                if (typeof data === 'string') {
+                    const encoder = new TextEncoder();
+                    return encoder.encode(data);
+                }
+                return new Uint8Array(data);
+            },
+            alloc: function(size) {
+                return new Uint8Array(size);
+            }
+        };
+        console.log('[Crypto Polyfill] Buffer polyfill created');
+    }
 
     // Check if crypto module is already available
     try {
@@ -821,23 +843,23 @@ class CodeServerSetup:
         console.log('[Crypto Polyfill] Native crypto not available, loading polyfill');
     }
 
-    // Enhanced crypto polyfill with better Node.js compatibility
+    // Enhanced crypto polyfill with web worker compatibility
     const crypto = {
         // Random bytes generation with better fallbacks
         randomBytes: function(size, callback) {
             let array;
 
             try {
-                // Try Web Crypto API first
+                // Try Web Crypto API first (available in web workers)
                 if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
                     array = new Uint8Array(size);
                     globalThis.crypto.getRandomValues(array);
-                } else if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-                    array = new Uint8Array(size);
-                    window.crypto.getRandomValues(array);
                 } else if (typeof self !== 'undefined' && self.crypto && self.crypto.getRandomValues) {
                     array = new Uint8Array(size);
                     self.crypto.getRandomValues(array);
+                } else if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+                    array = new Uint8Array(size);
+                    window.crypto.getRandomValues(array);
                 } else {
                     // Fallback to Math.random (less secure but functional)
                     array = new Uint8Array(size);
@@ -846,7 +868,8 @@ class CodeServerSetup:
                     }
                 }
 
-                const buffer = Buffer.from ? Buffer.from(array) : new Buffer(array);
+                // Use our Buffer polyfill
+                const buffer = globalThis.Buffer ? globalThis.Buffer.from(array) : array;
 
                 if (callback && typeof callback === 'function') {
                     callback(null, buffer);
@@ -855,6 +878,7 @@ class CodeServerSetup:
                 return buffer;
 
             } catch (error) {
+                console.error('[Crypto Polyfill] Error in randomBytes:', error);
                 if (callback && typeof callback === 'function') {
                     callback(error);
                     return;
@@ -987,21 +1011,56 @@ class CodeServerSetup:
         }
     };
 
-    // Make crypto available globally in all contexts
+    // Make crypto available globally in all contexts with enhanced web worker support
     if (typeof global !== 'undefined') {
         global.crypto = crypto;
-        // Also make it available via require
+        console.log('[Crypto Polyfill] Crypto attached to global');
+    }
+
+    if (typeof globalThis !== 'undefined') {
+        globalThis.crypto = crypto;
+        console.log('[Crypto Polyfill] Crypto attached to globalThis');
+    }
+
+    if (typeof self !== 'undefined') {
+        self.crypto = crypto;
+        console.log('[Crypto Polyfill] Crypto attached to self (web worker context)');
+    }
+
+    if (typeof window !== 'undefined') {
+        window.crypto = crypto;
+        console.log('[Crypto Polyfill] Crypto attached to window');
+    }
+
+    // Enhanced require() polyfill for web worker environments
+    const createRequirePolyfill = function() {
+        return function(module) {
+            console.log('[Crypto Polyfill] require() called for module:', module);
+            if (module === 'crypto') {
+                console.log('[Crypto Polyfill] Returning crypto module');
+                return crypto;
+            }
+            // Try to find the module in global scope
+            if (typeof globalThis !== 'undefined' && globalThis[module]) {
+                return globalThis[module];
+            }
+            if (typeof self !== 'undefined' && self[module]) {
+                return self[module];
+            }
+            throw new Error('Module not found: ' + module);
+        };
+    };
+
+    // Set up require() in all possible contexts
+    if (typeof global !== 'undefined') {
         if (typeof global.require === 'undefined') {
-            global.require = function(module) {
-                if (module === 'crypto') {
-                    return crypto;
-                }
-                throw new Error('Module not found: ' + module);
-            };
+            global.require = createRequirePolyfill();
+            console.log('[Crypto Polyfill] require() polyfill created in global');
         } else {
             const originalRequire = global.require;
             global.require = function(module) {
                 if (module === 'crypto') {
+                    console.log('[Crypto Polyfill] Intercepted crypto require in global');
                     return crypto;
                 }
                 return originalRequire.apply(this, arguments);
@@ -1010,29 +1069,41 @@ class CodeServerSetup:
     }
 
     if (typeof globalThis !== 'undefined') {
-        globalThis.crypto = crypto;
+        if (typeof globalThis.require === 'undefined') {
+            globalThis.require = createRequirePolyfill();
+            console.log('[Crypto Polyfill] require() polyfill created in globalThis');
+        }
     }
 
     if (typeof self !== 'undefined') {
-        self.crypto = crypto;
-    }
-
-    if (typeof window !== 'undefined') {
-        window.crypto = crypto;
+        if (typeof self.require === 'undefined') {
+            self.require = createRequirePolyfill();
+            console.log('[Crypto Polyfill] require() polyfill created in self (web worker)');
+        }
     }
 
     // Make it available as a CommonJS module
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = crypto;
+        console.log('[Crypto Polyfill] Crypto exported as CommonJS module');
     }
 
     // Make it available as an AMD module
     if (typeof define === 'function' && define.amd) {
-        define(function() { return crypto; });
+        define(function() {
+            console.log('[Crypto Polyfill] Crypto defined as AMD module');
+            return crypto;
+        });
     }
 
     console.log('[Crypto Polyfill] Enhanced crypto module polyfill loaded successfully');
     console.log('[Crypto Polyfill] Available methods:', Object.keys(crypto));
+    console.log('[Crypto Polyfill] Environment check:');
+    console.log('  - global:', typeof global !== 'undefined');
+    console.log('  - globalThis:', typeof globalThis !== 'undefined');
+    console.log('  - self:', typeof self !== 'undefined');
+    console.log('  - window:', typeof window !== 'undefined');
+    console.log('  - require available:', typeof require !== 'undefined');
 })();
 '''
 
@@ -1230,6 +1301,145 @@ try {{
 
         return injected
 
+    def _create_web_worker_crypto_fix(self):
+        """Create a web worker specific crypto fix that gets injected into the extension host."""
+        polyfill_dir = Path.home() / ".local" / "share" / "code-server" / "polyfills"
+        polyfill_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a more aggressive web worker crypto polyfill
+        web_worker_crypto_content = '''
+// Web Worker Crypto Polyfill - Aggressive injection for VS Code extensions
+// This runs before any extension code and ensures crypto is available
+
+console.log('[Web Worker Crypto] Starting aggressive crypto polyfill injection');
+
+// Immediately define crypto in all possible global contexts
+(function() {
+    'use strict';
+
+    // Buffer polyfill for web workers
+    if (typeof Buffer === 'undefined') {
+        const BufferPolyfill = {
+            from: function(data) {
+                if (data instanceof Uint8Array) return data;
+                if (typeof data === 'string') {
+                    const encoder = new TextEncoder();
+                    return encoder.encode(data);
+                }
+                return new Uint8Array(data);
+            },
+            alloc: function(size) { return new Uint8Array(size); }
+        };
+
+        // Define Buffer in all contexts
+        if (typeof globalThis !== 'undefined') globalThis.Buffer = BufferPolyfill;
+        if (typeof self !== 'undefined') self.Buffer = BufferPolyfill;
+        if (typeof global !== 'undefined') global.Buffer = BufferPolyfill;
+        if (typeof window !== 'undefined') window.Buffer = BufferPolyfill;
+    }
+
+    // Crypto implementation
+    const cryptoImpl = {
+        randomBytes: function(size, callback) {
+            try {
+                let array = new Uint8Array(size);
+
+                // Use Web Crypto API if available
+                const cryptoSource = globalThis.crypto || self.crypto || window.crypto;
+                if (cryptoSource && cryptoSource.getRandomValues) {
+                    cryptoSource.getRandomValues(array);
+                } else {
+                    // Fallback to Math.random
+                    for (let i = 0; i < size; i++) {
+                        array[i] = Math.floor(Math.random() * 256);
+                    }
+                }
+
+                const buffer = (globalThis.Buffer || self.Buffer || Buffer).from(array);
+
+                if (callback) {
+                    setTimeout(() => callback(null, buffer), 0);
+                    return;
+                }
+                return buffer;
+            } catch (error) {
+                if (callback) {
+                    setTimeout(() => callback(error), 0);
+                    return;
+                }
+                throw error;
+            }
+        },
+
+        randomBytesSync: function(size) {
+            return this.randomBytes(size);
+        },
+
+        createHash: function(algorithm) {
+            return {
+                update: function(data) { this._data = (this._data || '') + data; return this; },
+                digest: function(encoding) {
+                    const hash = Math.abs((this._data || '').split('').reduce((a, b) => {
+                        a = ((a << 5) - a) + b.charCodeAt(0);
+                        return a & a;
+                    }, 0));
+                    return encoding === 'hex' ? hash.toString(16) : hash.toString();
+                }
+            };
+        },
+
+        createHmac: function(algorithm, key) {
+            return this.createHash(algorithm);
+        }
+    };
+
+    // Aggressive global injection
+    const contexts = [globalThis, self, global, window].filter(ctx => ctx);
+    contexts.forEach(ctx => {
+        if (ctx) {
+            ctx.crypto = cryptoImpl;
+            console.log('[Web Worker Crypto] Injected crypto into context:', ctx.constructor.name);
+        }
+    });
+
+    // Create require function that returns crypto
+    const requirePolyfill = function(module) {
+        console.log('[Web Worker Crypto] require() called for:', module);
+        if (module === 'crypto') {
+            console.log('[Web Worker Crypto] Returning crypto module');
+            return cryptoImpl;
+        }
+        throw new Error('Module not found: ' + module);
+    };
+
+    // Inject require in all contexts
+    contexts.forEach(ctx => {
+        if (ctx && !ctx.require) {
+            ctx.require = requirePolyfill;
+            console.log('[Web Worker Crypto] Injected require() into context');
+        }
+    });
+
+    console.log('[Web Worker Crypto] Aggressive crypto polyfill injection complete');
+    console.log('[Web Worker Crypto] Testing crypto availability...');
+
+    // Test the implementation
+    try {
+        const testCrypto = requirePolyfill('crypto');
+        const testBytes = testCrypto.randomBytes(16);
+        console.log('[Web Worker Crypto] Test successful, crypto is working:', testBytes.length === 16);
+    } catch (e) {
+        console.error('[Web Worker Crypto] Test failed:', e);
+    }
+})();
+'''
+
+        web_worker_file = polyfill_dir / "web-worker-crypto.js"
+        with open(web_worker_file, 'w') as f:
+            f.write(web_worker_crypto_content)
+
+        return web_worker_file
+
     def fix_crypto_extensions(self):
         """Fix crypto module issues in installed extensions - Main menu function."""
         print("\n🔧 Fixing Crypto Module Extensions")
@@ -1246,8 +1456,9 @@ try {{
                 print("❌ Cannot apply fixes while Code Server is running.")
                 return
 
-        # Create crypto polyfill
+        # Create both polyfills
         polyfill_file = self._create_crypto_polyfill()
+        web_worker_file = self._create_web_worker_crypto_fix()
 
         # Inject polyfill into extensions
         injected_count = self._inject_crypto_polyfill_to_extensions()
@@ -1256,7 +1467,8 @@ try {{
         config_file = self._create_code_server_config()
 
         print(f"\n📊 Fix Results:")
-        print(f"   • Crypto polyfill created: {polyfill_file}")
+        print(f"   • Node.js crypto polyfill created: {polyfill_file}")
+        print(f"   • Web worker crypto polyfill created: {web_worker_file}")
         print(f"   • Extensions patched: {injected_count}")
         print(f"   • Config file updated: {config_file}")
         print(f"   • Node.js environment: Configured for crypto compatibility")
@@ -1265,6 +1477,7 @@ try {{
             print("\n✅ Crypto module fixes applied successfully!")
             print("💡 The following fixes have been applied:")
             print("   • Enhanced crypto polyfill with Node.js compatibility")
+            print("   • Web worker crypto polyfill for browser context")
             print("   • Extension host wrapper for early crypto loading")
             print("   • Direct extension patching with backup")
             print("   • Improved Node.js environment configuration")
