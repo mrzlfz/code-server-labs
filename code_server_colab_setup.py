@@ -546,17 +546,32 @@ class CodeServerSetup:
                 choice = input("👉 Select option (0-13): ").strip()
 
                 # Find and execute the selected option
+                function_executed = False
                 for key, _, func in menu_options:
                     if choice == key:
                         print()
-                        func()
+                        try:
+                            func()
+                            function_executed = True
+                        except KeyboardInterrupt:
+                            print("\n⚠️  Operation interrupted by user (Ctrl+C)")
+                            print("🔄 Returning to main menu...")
+                            function_executed = True
+                        except Exception as func_error:
+                            self.logger.error(f"Function error in {func.__name__}: {func_error}")
+                            print(f"❌ Error in {func.__name__}: {func_error}")
+                            function_executed = True
                         break
-                else:
+
+                if not function_executed:
                     print("❌ Invalid option. Please try again.")
                     time.sleep(1)
 
-                if choice != "0":
-                    input("\n⏸️  Press Enter to continue...")
+                if choice != "0" and function_executed:
+                    try:
+                        input("\n⏸️  Press Enter to continue...")
+                    except KeyboardInterrupt:
+                        print("\n🔄 Returning to menu...")
 
             except KeyboardInterrupt:
                 print("\n\n👋 Goodbye!")
@@ -1555,6 +1570,11 @@ try {{
         print("⏹️  Stopping Code Server...")
 
         try:
+            # Check if Code Server is actually running first
+            if not self._is_code_server_running():
+                print("ℹ️  Code Server is not running.")
+                return
+
             # Stop ngrok tunnel first
             if self.ngrok_tunnel and ngrok is not None:
                 print("🌐 Closing ngrok tunnel...")
@@ -1566,36 +1586,83 @@ try {{
 
             # Find and kill Code Server processes
             killed = False
+            processes_found = 0
+
+            print("🔍 Finding Code Server processes...")
 
             if PSUTIL_AVAILABLE:
+                # Use psutil for more reliable process management
                 for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                     try:
-                        if 'code-server' in ' '.join(proc.info['cmdline'] or []):
+                        cmdline = ' '.join(proc.info['cmdline'] or [])
+                        if 'code-server' in cmdline:
+                            processes_found += 1
+                            print(f"   • Found process PID {proc.info['pid']}")
                             proc.terminate()
                             killed = True
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+
+                            # Wait a moment for graceful termination
+                            try:
+                                proc.wait(timeout=3)
+                                print(f"   • Process {proc.info['pid']} terminated gracefully")
+                            except psutil.TimeoutExpired:
+                                print(f"   • Force killing process {proc.info['pid']}")
+                                proc.kill()
+
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
                         continue
             else:
                 # Fallback method - platform specific
+                print("   • Using system commands...")
                 try:
                     if sys.platform == "win32":
                         # Windows: use taskkill command
-                        subprocess.run(["taskkill", "/F", "/IM", "code-server.exe"], check=False)
+                        result = subprocess.run(
+                            ["taskkill", "/F", "/IM", "code-server.exe"],
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if result.returncode == 0:
+                            killed = True
+                            processes_found = 1
                     else:
                         # Linux/Unix: use pkill command
-                        subprocess.run(["pkill", "-f", "code-server"], check=False)
+                        result = subprocess.run(
+                            ["pkill", "-f", "code-server"],
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if result.returncode == 0:
+                            killed = True
+                            processes_found = 1
+                except subprocess.TimeoutExpired:
+                    print("⚠️  Stop command timed out, but processes may have been terminated")
                     killed = True
-                except:
-                    pass
+                except Exception as stop_error:
+                    print(f"⚠️  Error during stop: {stop_error}")
 
-            if killed:
-                print("✅ Code Server stopped successfully!")
+            # Verify that processes are actually stopped
+            time.sleep(1)
+            if self._is_code_server_running():
+                print("⚠️  Some Code Server processes may still be running")
+                print("💡 Try using 'Restart Code Server' (option 4) for a force restart")
             else:
-                print("ℹ️  Code Server was not running.")
+                if killed and processes_found > 0:
+                    print(f"✅ Code Server stopped successfully! ({processes_found} process(es) terminated)")
+                elif processes_found == 0:
+                    print("ℹ️  No Code Server processes were found.")
+                else:
+                    print("✅ Code Server stopped successfully!")
 
+        except KeyboardInterrupt:
+            print("\n⚠️  Stop operation interrupted by user")
+            print("💡 Code Server processes may still be running")
         except Exception as e:
             self.logger.error(f"Failed to stop Code Server: {e}")
             print(f"❌ Failed to stop Code Server: {e}")
+            print("💡 Try using 'Restart Code Server' (option 4) for a force restart")
 
     def restart_code_server(self):
         """Restart Code Server."""
