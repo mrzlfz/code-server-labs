@@ -2353,25 +2353,41 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             print("🔐 You'll need to authenticate with Microsoft/GitHub account")
             print("💡 A browser window will open for authentication")
 
-            # Ask user for authentication method
-            print("\n🔐 Authentication Method Selection:")
-            print("1. Microsoft Account")
-            print("2. GitHub Account")
+            # Check if already authenticated
+            print("\n🔍 Checking authentication status...")
+            if self.check_vscode_auth_status():
+                print("✅ Already authenticated, proceeding with tunnel creation")
+                auth_provider = "existing"  # Use existing authentication
+            else:
+                print("❌ Not authenticated, need to login first")
 
-            while True:
-                try:
-                    auth_choice = input("👉 Choose authentication method (1 or 2): ").strip()
-                    if auth_choice == "1":
-                        auth_provider = "microsoft"
-                        break
-                    elif auth_choice == "2":
-                        auth_provider = "github"
-                        break
-                    else:
-                        print("❌ Please enter 1 for Microsoft or 2 for GitHub")
-                except KeyboardInterrupt:
-                    print("\n❌ Operation cancelled")
+                # Ask user for authentication method
+                print("\n🔐 Authentication Method Selection:")
+                print("1. Microsoft Account")
+                print("2. GitHub Account")
+
+                while True:
+                    try:
+                        auth_choice = input("👉 Choose authentication method (1 or 2): ").strip()
+                        if auth_choice == "1":
+                            auth_provider = "microsoft"
+                            break
+                        elif auth_choice == "2":
+                            auth_provider = "github"
+                            break
+                        else:
+                            print("❌ Please enter 1 for Microsoft or 2 for GitHub")
+                    except KeyboardInterrupt:
+                        print("\n❌ Operation cancelled")
+                        return False
+
+                # Authenticate first
+                print(f"\n🔐 Authenticating with {auth_provider}...")
+                if not self._authenticate_vscode_user(auth_provider):
+                    print("❌ Authentication failed")
                     return False
+
+                print("✅ Authentication completed, proceeding with tunnel creation")
 
             # Start VSCode Server tunnel (authentication provider is selected interactively)
             cmd = [
@@ -2855,6 +2871,43 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                 return True
             else:
                 print("-" * 40)
+                print("❌ Authentication failed")
+                return False
+
+        except subprocess.TimeoutExpired:
+            print("⏳ Authentication timed out")
+            return False
+        except KeyboardInterrupt:
+            print("\n❌ Authentication cancelled by user")
+            return False
+        except Exception as e:
+            print(f"❌ Authentication error: {e}")
+            return False
+
+    def _authenticate_vscode_user(self, provider):
+        """Authenticate VSCode user with specified provider."""
+        print(f"🔐 Starting authentication with {provider}...")
+
+        try:
+            vscode_bin = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+            if not vscode_bin.exists():
+                print("❌ VSCode CLI not found")
+                return False
+
+            # Run authentication command
+            cmd = [str(vscode_bin), "tunnel", "user", "login", "--provider", provider]
+            print(f"🚀 Running: {' '.join(cmd)}")
+            print("💡 Follow the authentication prompts:")
+            print("-" * 40)
+
+            # Run interactively so user can see and respond to prompts
+            result = subprocess.run(cmd, timeout=300)  # 5 minute timeout
+
+            print("-" * 40)
+            if result.returncode == 0:
+                print("✅ Authentication completed successfully!")
+                return True
+            else:
                 print("❌ Authentication failed")
                 return False
 
