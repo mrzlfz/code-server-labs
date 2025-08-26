@@ -543,13 +543,14 @@ class CodeServerSetup:
                     ("3", "⏹️  Stop VSCode Server", self.stop_vscode_server),
                     ("4", "🔄 Restart VSCode Server", self.restart_vscode_server),
                     ("5", "📊 Show Status", self.show_status),
-                    ("6", "⚙️  Configure Settings", self.configure_settings),
-                    ("7", "🔄 Switch to Code Server", self._switch_to_code_server),
-                    ("8", "🔧 System Info", self.show_system_info),
-                    ("9", "📋 View Logs", self.view_logs),
+                    ("6", "🔍 Check Server Output", self.check_vscode_server_output),
+                    ("7", "⚙️  Configure Settings", self.configure_settings),
+                    ("8", "🔄 Switch to Code Server", self._switch_to_code_server),
+                    ("9", "🔧 System Info", self.show_system_info),
+                    ("10", "📋 View Logs", self.view_logs),
                     ("0", "❌ Exit", self._exit_app)
                 ]
-                max_option = 9
+                max_option = 10
             else:
                 menu_options = [
                     ("1", "🚀 Install Code Server", self.install_code_server),
@@ -2354,66 +2355,130 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             cmd = [str(vscode_bin), "tunnel", "--name", tunnel_name, "--accept-server-license-terms"]
 
             print(f"🚀 Starting: {' '.join(cmd)}")
+            print("⚠️  Note: This process requires interactive authentication!")
 
+            # Start the process with interactive capabilities
             self.vscode_server_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout
                 text=True,
-                bufsize=1,
+                bufsize=0,  # Unbuffered
                 universal_newlines=True
             )
 
-            # Wait for tunnel to be established
-            print("⏳ Waiting for tunnel to be established...")
-            tunnel_url = None
-            start_time = time.time()
-            timeout = 120  # 2 minutes timeout
+            print("⏳ Starting VSCode Server (this may take a moment)...")
+            print("🔍 Monitoring output for authentication instructions...")
 
-            while time.time() - start_time < timeout:
+            # Monitor initial output for authentication info
+            tunnel_url = None
+            auth_url = None
+            start_time = time.time()
+            initial_timeout = 30  # 30 seconds for initial setup
+
+            while time.time() - start_time < initial_timeout:
                 if self.vscode_server_process.poll() is not None:
                     # Process ended unexpectedly
-                    stdout, stderr = self.vscode_server_process.communicate()
                     print(f"❌ VSCode Server process ended unexpectedly")
-                    if stderr:
-                        print(f"Error: {stderr}")
+                    try:
+                        remaining_output = self.vscode_server_process.stdout.read()
+                        if remaining_output:
+                            print(f"Final output: {remaining_output}")
+                    except:
+                        pass
                     return False
 
-                # Check for tunnel URL in output
+                # Check for output (non-blocking)
                 try:
-                    line = self.vscode_server_process.stdout.readline()
-                    if line:
-                        print(f"📝 {line.strip()}")
-                        if "vscode.dev/tunnel" in line:
-                            # Extract tunnel URL
-                            import re
-                            url_match = re.search(r'https://[^\s]+', line)
-                            if url_match:
-                                tunnel_url = url_match.group()
-                                break
+                    import select
+                    import sys
+
+                    # Check if there's data to read (Unix-like systems)
+                    if hasattr(select, 'select'):
+                        ready, _, _ = select.select([self.vscode_server_process.stdout], [], [], 0.1)
+                        if ready:
+                            line = self.vscode_server_process.stdout.readline()
+                            if line:
+                                line = line.strip()
+                                print(f"📝 {line}")
+
+                                # Look for authentication URL
+                                if "vscode.dev" in line and "https://" in line:
+                                    import re
+                                    url_match = re.search(r'https://[^\s]+', line)
+                                    if url_match:
+                                        if "tunnel" in line:
+                                            tunnel_url = url_match.group()
+                                        else:
+                                            auth_url = url_match.group()
+
+                                # Look for specific authentication messages
+                                if "To grant access to the server" in line or "Open this link" in line:
+                                    print("🔐 Authentication required! Look for the URL above.")
+
+                                if tunnel_url:
+                                    break
+                    else:
+                        # Fallback for Windows or systems without select
+                        try:
+                            line = self.vscode_server_process.stdout.readline()
+                            if line:
+                                line = line.strip()
+                                print(f"📝 {line}")
+
+                                if "vscode.dev" in line and "https://" in line:
+                                    import re
+                                    url_match = re.search(r'https://[^\s]+', line)
+                                    if url_match:
+                                        if "tunnel" in line:
+                                            tunnel_url = url_match.group()
+                                        else:
+                                            auth_url = url_match.group()
+
+                                if tunnel_url:
+                                    break
+                        except:
+                            pass
+
+                except ImportError:
+                    # Fallback if select is not available
+                    time.sleep(0.5)
+                    continue
                 except:
-                    pass
+                    time.sleep(0.1)
+                    continue
 
-                time.sleep(1)
+                time.sleep(0.5)
 
+            # Process is running, provide user guidance
+            print("\n🎯 VSCode Server Status:")
             if tunnel_url:
-                print("✅ VSCode Server tunnel started successfully!")
+                print("✅ Tunnel established successfully!")
                 print(f"🌐 Access URL: {tunnel_url}")
-                print("\n💡 How to connect:")
-                print("   • Web: Open the URL above in your browser")
-                print("   • Desktop: Install 'Remote - Tunnels' extension in VSCode")
-                print("   • Desktop: Use 'Remote-Tunnels: Connect to Tunnel' command")
-                print(f"   • Tunnel name: {tunnel_name}")
-
-                # Store tunnel info
                 self.config.set("vscode_server.tunnel_url", tunnel_url)
-                self.config.set("vscode_server.process_pid", self.vscode_server_process.pid)
-
-                return True
+            elif auth_url:
+                print("🔐 Authentication in progress...")
+                print(f"🌐 Auth URL: {auth_url}")
+                print("👆 Open the URL above in your browser to authenticate")
             else:
-                print("⚠️  Tunnel URL not detected, but process is running")
-                print("💡 Check the process output for authentication instructions")
-                return True
+                print("⏳ Server is starting... Authentication may be required.")
+                print("📋 Check the output above for authentication URLs")
+
+            print(f"\n💡 Process Info:")
+            print(f"   • Process ID: {self.vscode_server_process.pid}")
+            print(f"   • Tunnel Name: {tunnel_name}")
+            print(f"   • Status: Running")
+
+            print(f"\n🔗 How to connect:")
+            print(f"   • Wait for authentication to complete")
+            print(f"   • Look for tunnel URL in the output")
+            print(f"   • Use 'Show Status' to check progress")
+            print(f"   • Desktop VSCode: Install 'Remote - Tunnels' extension")
+
+            # Store process info
+            self.config.set("vscode_server.process_pid", self.vscode_server_process.pid)
+
+            return True
 
         except Exception as e:
             self.logger.error(f"Failed to start VSCode Server: {e}")
@@ -2524,6 +2589,63 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
         print(f"   • Web Browser: Use the access URL above")
         print(f"   • Desktop VSCode: Install 'Remote - Tunnels' extension")
         print(f"   • Desktop VSCode: Use 'Remote-Tunnels: Connect to Tunnel' command")
+
+    def check_vscode_server_output(self):
+        """Check VSCode Server output for authentication status."""
+        if not hasattr(self, 'vscode_server_process') or not self.vscode_server_process:
+            print("❌ No VSCode Server process found")
+            return
+
+        if self.vscode_server_process.poll() is not None:
+            print("❌ VSCode Server process has ended")
+            return
+
+        print("📋 Checking VSCode Server output...")
+        print("🔍 Looking for authentication URLs and tunnel status...")
+
+        try:
+            # Try to read any available output
+            import select
+            if hasattr(select, 'select'):
+                ready, _, _ = select.select([self.vscode_server_process.stdout], [], [], 0.1)
+                if ready:
+                    while True:
+                        try:
+                            line = self.vscode_server_process.stdout.readline()
+                            if not line:
+                                break
+                            line = line.strip()
+                            if line:
+                                print(f"📝 {line}")
+
+                                # Check for tunnel URL
+                                if "vscode.dev/tunnel" in line:
+                                    import re
+                                    url_match = re.search(r'https://[^\s]+', line)
+                                    if url_match:
+                                        tunnel_url = url_match.group()
+                                        self.config.set("vscode_server.tunnel_url", tunnel_url)
+                                        print(f"✅ Found tunnel URL: {tunnel_url}")
+                        except:
+                            break
+                else:
+                    print("📝 No new output available")
+            else:
+                print("📝 Output monitoring not available on this system")
+
+        except ImportError:
+            print("📝 Output monitoring not available (select module not found)")
+        except Exception as e:
+            print(f"❌ Error checking output: {e}")
+
+        # Show current status
+        tunnel_url = self.config.get("vscode_server.tunnel_url", "")
+        if tunnel_url:
+            print(f"\n✅ Current tunnel URL: {tunnel_url}")
+        else:
+            print(f"\n⏳ Tunnel URL not yet available")
+            print(f"💡 The authentication process may still be in progress")
+            print(f"💡 Check your browser for authentication prompts")
 
     def _switch_to_vscode_server(self):
         """Switch from code-server to VSCode Server."""
