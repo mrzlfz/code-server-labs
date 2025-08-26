@@ -2231,9 +2231,9 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             # Use latest stable version
             version = self.config.get("vscode_server.version", "latest")
             if version == "latest":
-                download_url = f"https://code.visualstudio.com/sha/download?build=stable&os={platform_name}"
+                download_url = f"https://update.code.visualstudio.com/latest/{platform_name}/stable"
             else:
-                download_url = f"https://update.code.visualstudio.com/commit:{version}/{platform_name}/stable"
+                download_url = f"https://update.code.visualstudio.com/{version}/{platform_name}/stable"
 
             print(f"📥 Downloading VSCode CLI for {platform_name}...")
             print(f"🔗 URL: {download_url}")

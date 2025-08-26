@@ -77,10 +77,10 @@ python code_server_colab_setup.py
 ## 🔧 Technical Details
 
 ### Download URLs
-- Linux x64: `https://code.visualstudio.com/sha/download?build=stable&os=cli-linux-x64`
-- Linux ARM64: `https://code.visualstudio.com/sha/download?build=stable&os=cli-linux-arm64`
-- macOS x64: `https://code.visualstudio.com/sha/download?build=stable&os=cli-darwin-x64`
-- Windows x64: `https://code.visualstudio.com/sha/download?build=stable&os=cli-win32-x64`
+- Linux x64: `https://update.code.visualstudio.com/latest/cli-linux-x64/stable`
+- Linux ARM64: `https://update.code.visualstudio.com/latest/cli-linux-arm64/stable`
+- macOS x64: `https://update.code.visualstudio.com/latest/cli-darwin-x64/stable`
+- Windows x64: `https://update.code.visualstudio.com/latest/cli-win32-x64/stable`
 
 ### Command Structure
 ```bash
