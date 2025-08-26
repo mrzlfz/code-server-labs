@@ -598,14 +598,24 @@ class CodeServerSetup:
     def _is_code_server_running(self) -> bool:
         """Check if Code Server is currently running."""
         if not PSUTIL_AVAILABLE:
-            # Fallback method using ps command
+            # Fallback method using platform-specific commands
             try:
-                result = subprocess.run(
-                    ["pgrep", "-f", "code-server"],
-                    capture_output=True,
-                    text=True
-                )
-                return result.returncode == 0
+                if sys.platform == "win32":
+                    # Windows: use tasklist command
+                    result = subprocess.run(
+                        ["tasklist", "/FI", "IMAGENAME eq code-server.exe"],
+                        capture_output=True,
+                        text=True
+                    )
+                    return "code-server.exe" in result.stdout
+                else:
+                    # Linux/Unix: use pgrep command
+                    result = subprocess.run(
+                        ["pgrep", "-f", "code-server"],
+                        capture_output=True,
+                        text=True
+                    )
+                    return result.returncode == 0
             except:
                 return False
 
@@ -1364,6 +1374,31 @@ try {{
             # Check if already running
             if self._is_code_server_running():
                 print("ℹ️  Code Server is already running.")
+
+                # Show current access information
+                password = self.config.get("code_server.password", "colab123")
+                port = self.config.get("code_server.port", 8080)
+
+                print(f"\n🌐 Access Information:")
+                print(f"   • Local URL: http://127.0.0.1:{port}")
+                print(f"   • Password: {password}")
+
+                # Check if ngrok tunnel exists
+                if self.ngrok_tunnel and self.ngrok_tunnel.public_url:
+                    print(f"   • Public URL: {self.ngrok_tunnel.public_url}")
+                elif self.config.get("ngrok.auth_token"):
+                    print("   • Setting up ngrok tunnel...")
+                    self._start_ngrok_tunnel()
+                    if self.ngrok_tunnel and self.ngrok_tunnel.public_url:
+                        print(f"   • Public URL: {self.ngrok_tunnel.public_url}")
+                else:
+                    print("   • Public URL: Not configured (setup ngrok in menu option 9)")
+
+                print(f"\n💡 Options:")
+                print(f"   • To restart: Use menu option 4")
+                print(f"   • To stop: Use menu option 3")
+                print(f"   • To setup ngrok: Use menu option 9")
+
                 return
 
             # Check if installed
@@ -1541,9 +1576,14 @@ try {{
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         continue
             else:
-                # Fallback method
+                # Fallback method - platform specific
                 try:
-                    subprocess.run(["pkill", "-f", "code-server"], check=False)
+                    if sys.platform == "win32":
+                        # Windows: use taskkill command
+                        subprocess.run(["taskkill", "/F", "/IM", "code-server.exe"], check=False)
+                    else:
+                        # Linux/Unix: use pkill command
+                        subprocess.run(["pkill", "-f", "code-server"], check=False)
                     killed = True
                 except:
                     pass
