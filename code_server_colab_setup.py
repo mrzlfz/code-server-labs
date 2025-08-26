@@ -544,13 +544,15 @@ class CodeServerSetup:
                     ("4", "🔄 Restart VSCode Server", self.restart_vscode_server),
                     ("5", "📊 Show Status", self.show_status),
                     ("6", "🔍 Check Server Output", self.check_vscode_server_output),
-                    ("7", "⚙️  Configure Settings", self.configure_settings),
-                    ("8", "🔄 Switch to Code Server", self._switch_to_code_server),
-                    ("9", "🔧 System Info", self.show_system_info),
-                    ("10", "📋 View Logs", self.view_logs),
+                    ("7", "🔐 Check Auth Status", self.check_vscode_auth_status),
+                    ("8", "🔑 Manual Authentication", self.manual_vscode_auth),
+                    ("9", "⚙️  Configure Settings", self.configure_settings),
+                    ("10", "🔄 Switch to Code Server", self._switch_to_code_server),
+                    ("11", "🔧 System Info", self.show_system_info),
+                    ("12", "📋 View Logs", self.view_logs),
                     ("0", "❌ Exit", self._exit_app)
                 ]
-                max_option = 10
+                max_option = 12
             else:
                 menu_options = [
                     ("1", "🚀 Install Code Server", self.install_code_server),
@@ -2714,19 +2716,35 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
         print("🔍 Looking for authentication URLs and tunnel status...")
 
         try:
-            # Try to read any available output
+            # Try to read any available output with better buffering
             import select
             if hasattr(select, 'select'):
-                ready, _, _ = select.select([self.vscode_server_process.stdout], [], [], 0.1)
-                if ready:
-                    while True:
+                # Read all available output
+                output_lines = []
+                while True:
+                    ready, _, _ = select.select([self.vscode_server_process.stdout], [], [], 0.1)
+                    if ready:
                         try:
                             line = self.vscode_server_process.stdout.readline()
                             if not line:
                                 break
                             line = line.strip()
                             if line:
+                                output_lines.append(line)
                                 print(f"📝 {line}")
+
+                                # Check for authentication URLs
+                                if "github.com/login/device" in line or "microsoft.com/devicelogin" in line:
+                                    import re
+                                    url_match = re.search(r'https://[^\s]+', line)
+                                    if url_match:
+                                        auth_url = url_match.group()
+                                        print(f"🔐 Found authentication URL: {auth_url}")
+                                        print(f"👆 Open this URL in your browser to authenticate!")
+
+                                # Check for device codes
+                                if "code:" in line.lower() or "user code" in line.lower():
+                                    print(f"🔑 Device code found: {line}")
 
                                 # Check for tunnel URL
                                 if "vscode.dev/tunnel" in line:
@@ -2738,7 +2756,10 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                                         print(f"✅ Found tunnel URL: {tunnel_url}")
                         except:
                             break
-                else:
+                    else:
+                        break
+
+                if not output_lines:
                     print("📝 No new output available")
             else:
                 print("📝 Output monitoring not available on this system")
@@ -2755,7 +2776,100 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
         else:
             print(f"\n⏳ Tunnel URL not yet available")
             print(f"💡 The authentication process may still be in progress")
-            print(f"💡 Check your browser for authentication prompts")
+            print(f"💡 Try the manual authentication method below")
+
+    def check_vscode_auth_status(self):
+        """Check if VSCode CLI is authenticated."""
+        print("🔍 Checking VSCode CLI authentication status...")
+
+        try:
+            vscode_bin = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+            if not vscode_bin.exists():
+                print("❌ VSCode CLI not found")
+                return False
+
+            # Check authentication status
+            result = subprocess.run([str(vscode_bin), "tunnel", "user", "show"],
+                                  capture_output=True, text=True, timeout=10)
+
+            if result.returncode == 0:
+                print("✅ VSCode CLI is authenticated")
+                print(f"📝 User info: {result.stdout.strip()}")
+                return True
+            else:
+                print("❌ VSCode CLI is not authenticated")
+                print(f"📝 Error: {result.stderr.strip()}")
+                return False
+
+        except subprocess.TimeoutExpired:
+            print("⏳ Authentication check timed out")
+            return False
+        except Exception as e:
+            print(f"❌ Error checking authentication: {e}")
+            return False
+
+    def manual_vscode_auth(self):
+        """Manually authenticate VSCode CLI."""
+        print("🔐 Manual VSCode Authentication")
+        print("=" * 40)
+
+        # Check if VSCode CLI exists
+        vscode_bin = Path(self.config.get("vscode_server.bin_path", str(Path.home() / ".local" / "bin" / "code")))
+        if not vscode_bin.exists():
+            print("❌ VSCode CLI not found. Please install VSCode Server first.")
+            return False
+
+        # Choose authentication provider
+        print("\n🔐 Choose authentication provider:")
+        print("1. GitHub")
+        print("2. Microsoft")
+
+        while True:
+            try:
+                choice = input("👉 Choose (1 or 2): ").strip()
+                if choice == "1":
+                    provider = "github"
+                    break
+                elif choice == "2":
+                    provider = "microsoft"
+                    break
+                else:
+                    print("❌ Please enter 1 or 2")
+            except KeyboardInterrupt:
+                print("\n❌ Cancelled")
+                return False
+
+        print(f"\n🚀 Starting manual authentication with {provider}...")
+        print("💡 This will open an interactive authentication process")
+
+        try:
+            # Run authentication command interactively
+            cmd = [str(vscode_bin), "tunnel", "user", "login", "--provider", provider]
+            print(f"🔧 Running: {' '.join(cmd)}")
+            print("👆 Follow the prompts below:")
+            print("-" * 40)
+
+            # Run interactively so user can see and respond to prompts
+            result = subprocess.run(cmd, timeout=300)  # 5 minute timeout
+
+            if result.returncode == 0:
+                print("-" * 40)
+                print("✅ Authentication completed successfully!")
+                return True
+            else:
+                print("-" * 40)
+                print("❌ Authentication failed")
+                return False
+
+        except subprocess.TimeoutExpired:
+            print("⏳ Authentication timed out")
+            return False
+        except KeyboardInterrupt:
+            print("\n❌ Authentication cancelled by user")
+            return False
+        except Exception as e:
+            print(f"❌ Authentication error: {e}")
+            return False
 
     def _switch_to_vscode_server(self):
         """Switch from code-server to VSCode Server."""
