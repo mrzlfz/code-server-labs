@@ -2351,8 +2351,32 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             print("🔐 You'll need to authenticate with Microsoft/GitHub account")
             print("💡 A browser window will open for authentication")
 
+            # Ask user for authentication method
+            print("\n🔐 Authentication Method Selection:")
+            print("1. Microsoft Account")
+            print("2. GitHub Account")
+
+            while True:
+                try:
+                    auth_choice = input("👉 Choose authentication method (1 or 2): ").strip()
+                    if auth_choice == "1":
+                        auth_provider = "microsoft"
+                        break
+                    elif auth_choice == "2":
+                        auth_provider = "github"
+                        break
+                    else:
+                        print("❌ Please enter 1 for Microsoft or 2 for GitHub")
+                except KeyboardInterrupt:
+                    print("\n❌ Operation cancelled")
+                    return False
+
             # Start VSCode Server tunnel
-            cmd = [str(vscode_bin), "tunnel", "--name", tunnel_name, "--accept-server-license-terms"]
+            cmd = [
+                str(vscode_bin), "tunnel",
+                "--name", tunnel_name,
+                "--accept-server-license-terms"
+            ]
 
             print(f"🚀 Starting: {' '.join(cmd)}")
             print("⚠️  Note: This process requires interactive authentication!")
@@ -2360,6 +2384,7 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             # Start the process with interactive capabilities
             self.vscode_server_process = subprocess.Popen(
                 cmd,
+                stdin=subprocess.PIPE,   # Allow input
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,  # Combine stderr with stdout
                 text=True,
@@ -2373,8 +2398,9 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             # Monitor initial output for authentication info
             tunnel_url = None
             auth_url = None
+            auth_choice_sent = False
             start_time = time.time()
-            initial_timeout = 30  # 30 seconds for initial setup
+            initial_timeout = 60  # 60 seconds for initial setup including auth
 
             while time.time() - start_time < initial_timeout:
                 if self.vscode_server_process.poll() is not None:
@@ -2412,6 +2438,19 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                                         else:
                                             auth_url = url_match.group()
 
+                                # Look for authentication choice prompt
+                                if "How would you like to log in" in line and not auth_choice_sent:
+                                    print("🔐 Detected authentication choice prompt")
+                                    # Send the user's choice
+                                    choice_input = "1\n" if auth_provider == "microsoft" else "2\n"
+                                    try:
+                                        self.vscode_server_process.stdin.write(choice_input)
+                                        self.vscode_server_process.stdin.flush()
+                                        auth_choice_sent = True
+                                        print(f"✅ Sent choice: {'Microsoft Account' if auth_provider == 'microsoft' else 'GitHub Account'}")
+                                    except Exception as e:
+                                        print(f"❌ Failed to send choice: {e}")
+
                                 # Look for specific authentication messages
                                 if "To grant access to the server" in line or "Open this link" in line:
                                     print("🔐 Authentication required! Look for the URL above.")
@@ -2425,6 +2464,19 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                             if line:
                                 line = line.strip()
                                 print(f"📝 {line}")
+
+                                # Look for authentication choice prompt
+                                if "How would you like to log in" in line and not auth_choice_sent:
+                                    print("🔐 Detected authentication choice prompt")
+                                    # Send the user's choice
+                                    choice_input = "1\n" if auth_provider == "microsoft" else "2\n"
+                                    try:
+                                        self.vscode_server_process.stdin.write(choice_input)
+                                        self.vscode_server_process.stdin.flush()
+                                        auth_choice_sent = True
+                                        print(f"✅ Sent choice: {'Microsoft Account' if auth_provider == 'microsoft' else 'GitHub Account'}")
+                                    except Exception as e:
+                                        print(f"❌ Failed to send choice: {e}")
 
                                 if "vscode.dev" in line and "https://" in line:
                                     import re

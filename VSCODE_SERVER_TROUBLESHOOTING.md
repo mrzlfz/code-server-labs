@@ -1,46 +1,57 @@
 # VSCode Server Troubleshooting Guide
 
-## 🚨 Common Issue: Stuck During Startup
+## 🚨 Common Issue: Stuck at Authentication Choice
 
 ### Problem
-VSCode Server gets stuck after showing license terms:
+VSCode Server gets stuck at the authentication method selection:
 ```
 📝 * Visual Studio Code Server
-📝 * By using the software, you agree to
-📝 * the Visual Studio Code Server License Terms...
+📝 * License terms...
+📝 ? How would you like to log in to Visual Studio Code? ›
+📝 ❯ Microsoft Account
+📝   GitHub Account
 ```
 
 ### Why This Happens
-VSCode Server requires **interactive authentication** with Microsoft/GitHub account. The process is waiting for you to:
-1. Accept the license terms (if needed)
-2. Authenticate via browser
-3. Grant permissions
+VSCode Server requires you to choose between Microsoft Account or GitHub Account for authentication, but the interactive prompt needs user input.
 
-### ✅ Solution Steps
+## ✅ **SOLUTION IMPLEMENTED!**
 
-#### Step 1: Wait and Watch
-- The process is **not frozen** - it's waiting for authentication
-- Look for authentication URLs in the output
-- Be patient - initial setup can take 1-2 minutes
+The script now **automatically handles** the authentication choice prompt!
 
-#### Step 2: Look for Authentication URL
+### 🚀 How It Works Now
+
+#### Step 1: Choose Authentication Method
+When you start VSCode Server, you'll be prompted:
+```
+🔐 Authentication Method Selection:
+1. Microsoft Account
+2. GitHub Account
+👉 Choose authentication method (1 or 2):
+```
+
+#### Step 2: Automatic Prompt Handling
+- Script detects the VSCode authentication choice prompt
+- Automatically sends your selection to the process
+- No more getting stuck at the selection screen!
+
+#### Step 3: Complete Browser Authentication
 Watch for output like:
 ```
 📝 To grant access to the server, please log into https://github.com/login/device
 📝 and use code: XXXX-XXXX
 ```
 
-#### Step 3: Complete Authentication
+#### Step 4: Complete Authentication
 1. Open the provided URL in your browser
 2. Enter the device code if prompted
-3. Sign in with Microsoft/GitHub account
+3. Sign in with your chosen account (Microsoft/GitHub)
 4. Grant permissions to VSCode Server
 
-#### Step 4: Check Progress
-Use the new menu option:
-```bash
-# In the menu, choose:
-6. 🔍 Check Server Output
+#### Step 5: Get Your Tunnel URL
+```
+📝 Open this link in your browser https://vscode.dev/tunnel/your-tunnel-name
+✅ Tunnel established successfully!
 ```
 
 ### 🔧 Improved Startup Process
