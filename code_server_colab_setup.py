@@ -529,11 +529,11 @@ class CodeServerSetup:
                 ("6", "⚙️  Configure Settings", self.configure_settings),
                 ("7", "📦 Manage Extensions", self.manage_extensions),
                 ("8", "🔧 Fix Crypto Extensions", self.fix_crypto_extensions),
-                ("8", "� Extension Registry", self.configure_extension_registry),
-                ("9", "�🌐 Setup Ngrok", self.setup_ngrok),
-                ("10", "☁️ Setup Cloudflare Tunnel", self.setup_cloudflare_tunnel),
-                ("11", "🔧 System Info", self.show_system_info),
-                ("12", "📋 View Logs", self.view_logs),
+                ("9", "🔧 Extension Registry", self.configure_extension_registry),
+                ("10", "🌐 Setup Ngrok", self.setup_ngrok),
+                ("11", "☁️ Setup Cloudflare Tunnel", self.setup_cloudflare_tunnel),
+                ("12", "🔧 System Info", self.show_system_info),
+                ("13", "📋 View Logs", self.view_logs),
                 ("0", "❌ Exit", self._exit_app)
             ]
 
