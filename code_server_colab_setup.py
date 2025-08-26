@@ -2371,12 +2371,18 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                     print("\n❌ Operation cancelled")
                     return False
 
-            # Start VSCode Server tunnel
+            # Start VSCode Server tunnel with specified authentication provider
             cmd = [
                 str(vscode_bin), "tunnel",
                 "--name", tunnel_name,
                 "--accept-server-license-terms"
             ]
+
+            # Add authentication provider if specified
+            if auth_provider == "microsoft":
+                cmd.extend(["--provider", "microsoft"])
+            elif auth_provider == "github":
+                cmd.extend(["--provider", "github"])
 
             print(f"🚀 Starting: {' '.join(cmd)}")
             print("⚠️  Note: This process requires interactive authentication!")
@@ -2452,8 +2458,12 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
                                         print(f"❌ Failed to send choice: {e}")
 
                                 # Look for specific authentication messages
-                                if "To grant access to the server" in line or "Open this link" in line:
+                                if "To grant access to the server" in line or "Open this link" in line or "log into" in line:
                                     print("🔐 Authentication required! Look for the URL above.")
+
+                                # Look for device code authentication
+                                if "device" in line.lower() and ("code" in line.lower() or "login" in line.lower()):
+                                    print("🔑 Device code authentication detected!")
 
                                 if tunnel_url:
                                     break
@@ -2502,6 +2512,48 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
 
                 time.sleep(0.5)
 
+            # Continue monitoring for authentication URLs
+            print("\n🔍 Continuing to monitor for authentication URLs...")
+            print("💡 This process may take 1-2 minutes for first-time setup")
+
+            # Extended monitoring for authentication
+            extended_timeout = 120  # 2 minutes total
+            while time.time() - start_time < extended_timeout:
+                if self.vscode_server_process.poll() is not None:
+                    print("❌ VSCode Server process ended")
+                    break
+
+                try:
+                    # Continue reading output
+                    if hasattr(select, 'select'):
+                        ready, _, _ = select.select([self.vscode_server_process.stdout], [], [], 0.5)
+                        if ready:
+                            line = self.vscode_server_process.stdout.readline()
+                            if line:
+                                line = line.strip()
+                                print(f"📝 {line}")
+
+                                # Look for authentication URLs
+                                if "https://" in line and ("github.com" in line or "microsoft.com" in line or "login" in line):
+                                    import re
+                                    url_match = re.search(r'https://[^\s]+', line)
+                                    if url_match:
+                                        auth_url = url_match.group()
+                                        print(f"🔐 Found authentication URL: {auth_url}")
+
+                                # Look for tunnel URL
+                                if "vscode.dev/tunnel" in line:
+                                    import re
+                                    url_match = re.search(r'https://[^\s]+', line)
+                                    if url_match:
+                                        tunnel_url = url_match.group()
+                                        print(f"✅ Found tunnel URL: {tunnel_url}")
+                                        break
+                except:
+                    pass
+
+                time.sleep(1)
+
             # Process is running, provide user guidance
             print("\n🎯 VSCode Server Status:")
             if tunnel_url:
@@ -2515,17 +2567,23 @@ console.log('[AGGRESSIVE CRYPTO] Complete crypto replacement finished');
             else:
                 print("⏳ Server is starting... Authentication may be required.")
                 print("📋 Check the output above for authentication URLs")
+                print("💡 Use menu option 6 'Check Server Output' to monitor progress")
 
             print(f"\n💡 Process Info:")
             print(f"   • Process ID: {self.vscode_server_process.pid}")
             print(f"   • Tunnel Name: {tunnel_name}")
             print(f"   • Status: Running")
+            print(f"   • Authentication: {auth_provider.title()} Account")
 
             print(f"\n🔗 How to connect:")
-            print(f"   • Wait for authentication to complete")
-            print(f"   • Look for tunnel URL in the output")
-            print(f"   • Use 'Show Status' to check progress")
-            print(f"   • Desktop VSCode: Install 'Remote - Tunnels' extension")
+            if tunnel_url:
+                print(f"   • Web: Open {tunnel_url}")
+                print(f"   • Desktop: Use Remote-Tunnels extension")
+            else:
+                print(f"   • Wait for authentication to complete")
+                print(f"   • Look for authentication URL in output above")
+                print(f"   • Use 'Check Server Output' to monitor progress")
+                print(f"   • Desktop VSCode: Install 'Remote - Tunnels' extension")
 
             # Store process info
             self.config.set("vscode_server.process_pid", self.vscode_server_process.pid)
