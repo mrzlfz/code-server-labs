@@ -1,0 +1,77 @@
+2025-09-03 07:42:06,308 - INFO - Output: # Executing docker install script, commit: 7cd5ba02e9305bcfd7a912f98798e7a61f663874
+
+================================================================================
+
+To run Docker as a non-privileged user, consider setting up the
+Docker daemon in rootless mode for your user:
+
+    dockerd-rootless-setuptool.sh install
+
+Visit https://docs.docker.com/go/rootless/ to learn about rootless mode.
+
+
+To run the Docker daemon as a fully privileged service, but granting non-root
+users access, refer to https://docs.docker.com/go/daemon-access/
+
+WARNING: Access to the remote API on a privileged Docker daemon is equivalent
+         to root access on the host. Refer to the 'Docker daemon attack surface'
+         documentation for details: https://docs.docker.com/go/attack-surface/
+
+================================================================================
+2025-09-03 07:42:06,308 - INFO - Running: rm get-docker.sh
+2025-09-03 07:42:06,310 - INFO - Docker installation completed successfully
+2025-09-03 07:42:06,311 - INFO - Running: apt-get install -y docker-compose-plugin
+2025-09-03 07:42:10,402 - INFO - Output: Reading package lists...
+Building dependency tree...
+Reading state information...
+docker-compose-plugin is already the newest version (2.39.1-1~ubuntu.22.04~jammy).
+0 upgraded, 0 newly installed, 0 to remove and 38 not upgraded.
+2025-09-03 07:42:10,402 - INFO - Running: docker info
+2025-09-03 07:42:10,520 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:42:10,520 - INFO - Starting Docker daemon...
+2025-09-03 07:42:10,520 - INFO - Running: systemctl start docker
+2025-09-03 07:42:10,524 - ERROR - Command failed: systemctl start docker
+2025-09-03 07:42:10,524 - ERROR - Error: System has not been booted with systemd as init system (PID 1). Can't operate.
+Failed to connect to bus: Host is down
+
+2025-09-03 07:42:10,524 - INFO - Running: service docker start
+2025-09-03 07:42:10,549 - INFO - Output: * Starting Docker: docker
+   ...done.
+2025-09-03 07:42:10,549 - INFO - Docker daemon started via service command
+2025-09-03 07:42:10,549 - INFO - Running: usermod -aG docker root
+2025-09-03 07:42:10,614 - INFO - Added user root to docker group
+2025-09-03 07:42:10,614 - INFO - Please log out and back in for group changes to take effect
+2025-09-03 07:42:10,614 - INFO - Verifying Docker installation...
+2025-09-03 07:42:10,637 - INFO - Running: docker info
+2025-09-03 07:42:11,999 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:42:12,000 - ERROR - Docker daemon is not running

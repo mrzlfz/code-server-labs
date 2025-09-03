@@ -1,0 +1,681 @@
+2025-09-03 07:43:39,744 - INFO - Starting Docker daemon fixes...
+2025-09-03 07:43:39,744 - INFO - Installing missing dependencies...
+2025-09-03 07:43:39,745 - INFO - Running: apt-get update
+2025-09-03 07:43:47,137 - INFO - Output: Hit:1 https://cloud.r-project.org/bin/linux/ubuntu jammy-cran40/ InRelease
+Hit:2 https://cli.github.com/packages stable InRelease
+Hit:3 https://download.docker.com/linux/ubuntu jammy InRelease
+Hit:4 http://security.ubuntu.com/ubuntu jammy-security InRelease
+Hit:5 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+Hit:6 http://archive.ubuntu.com/ubuntu jammy InRelease
+Hit:7 https://r2u.stat.illinois.edu/ubuntu jammy InRelease
+Hit:8 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:9 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+Hit:10 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
+Hit:11 https://ppa.launchpadcontent.net/graphics-drivers/ppa/ubuntu jammy InRelease
+Hit:12 https://ppa.launchpadcontent.net/ubuntugis/ppa/ubuntu jammy InRelease
+Reading package lists...
+2025-09-03 07:43:47,137 - INFO - Running: apt-get install -y fuse-overlayfs iptables
+2025-09-03 07:43:54,508 - INFO - Output: Reading package lists...
+Building dependency tree...
+Reading state information...
+iptables is already the newest version (1.8.7-1ubuntu5.2).
+iptables set to manually installed.
+The following package was automatically installed and is no longer required:
+  libfuse2
+Use 'sudo apt autoremove' to remove it.
+The following additional packages will be installed:
+  fuse3 libfuse3-3
+The following packages will be REMOVED:
+  fuse
+The following NEW packages will be installed:
+  fuse-overlayfs fuse3 libfuse3-3
+0 upgraded, 3 newly installed, 1 to remove and 38 not upgraded.
+Need to get 151 kB of archives.
+After this operation, 380 kB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu jammy/main amd64 libfuse3-3 amd64 3.10.5-1build1 [81.2 kB]
+Get:2 http://archive.ubuntu.com/ubuntu jammy/main amd64 fuse3 amd64 3.10.5-1build1 [24.7 kB]
+Get:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 fuse-overlayfs amd64 1.7.1-1 [44.7 kB]
+Fetched 151 kB in 1s (250 kB/s)
+(Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 127103 files and directories currently installed.)
+Removing fuse (2.9.9-5ubuntu3) ...
+Selecting previously unselected package libfuse3-3:amd64.
+(Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 127093 files and directories currently installed.)
+Preparing to unpack .../libfuse3-3_3.10.5-1build1_amd64.deb ...
+Unpacking libfuse3-3:amd64 (3.10.5-1build1) ...
+Selecting previously unselected package fuse3.
+Preparing to unpack .../fuse3_3.10.5-1build1_amd64.deb ...
+Unpacking fuse3 (3.10.5-1build1) ...
+Selecting previously unselected package fuse-overlayfs.
+Preparing to unpack .../fuse-overlayfs_1.7.1-1_amd64.deb ...
+Unpacking fuse-overlayfs (1.7.1-1) ...
+Setting up libfuse3-3:amd64 (3.10.5-1build1) ...
+Setting up fuse3 (3.10.5-1build1) ...
+Installing new version of config file /etc/fuse.conf ...
+Setting up fuse-overlayfs (1.7.1-1) ...
+Processing triggers for man-db (2.10.2-1) ...
+Processing triggers for libc-bin (2.35-0ubuntu3.8) ...
+/sbin/ldconfig.real: /usr/local/lib/libtbb.so.12 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libur_adapter_level_zero.so.0 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtbbmalloc.so.2 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtbbbind_2_5.so.3 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtbbbind.so.3 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libur_adapter_opencl.so.0 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libhwloc.so.15 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libur_loader.so.0 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libur_adapter_level_zero_v2.so.0 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtbbbind_2_0.so.3 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtcm_debug.so.1 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtcm.so.1 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libtbbmalloc_proxy.so.2 is not a symbolic link
+
+/sbin/ldconfig.real: /usr/local/lib/libumf.so.0 is not a symbolic link
+2025-09-03 07:43:54,509 - INFO - Stopping Docker services...
+2025-09-03 07:43:54,509 - INFO - Running: pkill -f dockerd
+2025-09-03 07:43:54,514 - INFO - Running: pkill -f containerd
+2025-09-03 07:43:54,521 - INFO - Running: service docker stop
+2025-09-03 07:43:54,535 - INFO - Output: * Stopping Docker: docker
+No process in pidfile '/var/run/docker-ssd.pid' found running; none killed.
+2025-09-03 07:43:56,535 - INFO - Fixing iptables configuration...
+2025-09-03 07:43:56,535 - INFO - Running: iptables -t nat -F DOCKER
+2025-09-03 07:43:56,538 - INFO - Running: iptables -t nat -X DOCKER
+2025-09-03 07:43:56,541 - INFO - Running: iptables -t filter -F DOCKER
+2025-09-03 07:43:56,543 - INFO - Running: iptables -t filter -X DOCKER
+2025-09-03 07:43:56,545 - INFO - Running: iptables -t filter -F DOCKER-ISOLATION-STAGE-1
+2025-09-03 07:43:56,548 - INFO - Running: iptables -t filter -X DOCKER-ISOLATION-STAGE-1
+2025-09-03 07:43:56,550 - INFO - Running: iptables -t filter -F DOCKER-ISOLATION-STAGE-2
+2025-09-03 07:43:56,553 - INFO - Running: iptables -t filter -X DOCKER-ISOLATION-STAGE-2
+2025-09-03 07:43:56,555 - INFO - Running: sysctl -w net.ipv4.ip_forward=1
+2025-09-03 07:43:56,558 - INFO - Fixing Docker socket permissions...
+2025-09-03 07:43:56,558 - INFO - Running: rm -f /var/run/docker.sock
+2025-09-03 07:43:56,560 - INFO - Running: groupadd -f docker
+2025-09-03 07:43:56,563 - INFO - Creating Docker service configuration...
+2025-09-03 07:43:56,568 - INFO - Trying to start Docker via service...
+2025-09-03 07:43:56,568 - INFO - Running: service docker start
+2025-09-03 07:43:56,580 - INFO - Output: * Starting Docker: docker
+   ...done.
+2025-09-03 07:44:01,580 - INFO - Testing Docker...
+2025-09-03 07:44:01,581 - INFO - Running: docker info
+2025-09-03 07:44:01,846 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:01,846 - INFO - Service start failed, trying manual start...
+2025-09-03 07:44:01,846 - INFO - Starting Docker daemon manually...
+2025-09-03 07:44:01,848 - INFO - Docker daemon started with PID: 29353
+2025-09-03 07:44:02,849 - INFO - Running: docker info
+2025-09-03 07:44:03,018 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:04,018 - INFO - Running: docker info
+2025-09-03 07:44:04,111 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:05,111 - INFO - Running: docker info
+2025-09-03 07:44:05,243 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:06,243 - INFO - Running: docker info
+2025-09-03 07:44:06,344 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:07,345 - INFO - Running: docker info
+2025-09-03 07:44:07,437 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:08,437 - INFO - Running: docker info
+2025-09-03 07:44:08,523 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:09,524 - INFO - Running: docker info
+2025-09-03 07:44:09,610 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:10,610 - INFO - Running: docker info
+2025-09-03 07:44:10,717 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:11,718 - INFO - Running: docker info
+2025-09-03 07:44:11,817 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:12,818 - INFO - Running: docker info
+2025-09-03 07:44:12,930 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:13,930 - INFO - Running: docker info
+2025-09-03 07:44:14,128 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:15,129 - INFO - Running: docker info
+2025-09-03 07:44:15,336 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:16,336 - INFO - Running: docker info
+2025-09-03 07:44:16,544 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:17,544 - INFO - Running: docker info
+2025-09-03 07:44:17,717 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:18,717 - INFO - Running: docker info
+2025-09-03 07:44:18,848 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:19,849 - INFO - Running: docker info
+2025-09-03 07:44:19,945 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:20,945 - INFO - Running: docker info
+2025-09-03 07:44:21,047 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:22,047 - INFO - Running: docker info
+2025-09-03 07:44:22,145 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:23,145 - INFO - Running: docker info
+2025-09-03 07:44:23,243 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:24,244 - INFO - Running: docker info
+2025-09-03 07:44:24,341 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:25,341 - INFO - Running: docker info
+2025-09-03 07:44:25,434 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:26,434 - INFO - Running: docker info
+2025-09-03 07:44:26,535 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:27,535 - INFO - Running: docker info
+2025-09-03 07:44:27,674 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:28,674 - INFO - Running: docker info
+2025-09-03 07:44:28,890 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:29,891 - INFO - Running: docker info
+2025-09-03 07:44:30,066 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:31,066 - INFO - Running: docker info
+2025-09-03 07:44:31,283 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:32,283 - INFO - Running: docker info
+2025-09-03 07:44:32,461 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:33,462 - INFO - Running: docker info
+2025-09-03 07:44:33,625 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:34,625 - INFO - Running: docker info
+2025-09-03 07:44:34,726 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:35,726 - INFO - Running: docker info
+2025-09-03 07:44:35,853 - INFO - Output: Client: Docker Engine - Community
+ Version:    28.3.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.26.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v2.39.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+  model: Docker Model Runner (EXPERIMENTAL) (Docker Inc.)
+    Version:  v0.1.36
+    Path:     /usr/libexec/docker/cli-plugins/docker-model
+
+Server:
+2025-09-03 07:44:35,853 - ERROR - Docker daemon failed to start properly

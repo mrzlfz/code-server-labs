@@ -1,0 +1,12 @@
+2025-09-03 07:45:28,286 - INFO - Starting Docker installation for Google Colab...
+2025-09-03 07:45:28,287 - INFO - Starting Docker-in-Docker approach...
+2025-09-03 07:45:28,287 - INFO - Running: which docker
+2025-09-03 07:45:28,291 - INFO - Output: /usr/bin/docker
+2025-09-03 07:45:28,291 - INFO - Running: docker rm -f docker-daemon
+2025-09-03 07:45:28,325 - INFO - Running: docker run -d   --name docker-daemon   --privileged   --restart unless-stopped   -p 2376:2376   -v /var/lib/docker   docker:dind   dockerd     --host=tcp://0.0.0.0:2376     --tls=false
+2025-09-03 07:45:28,354 - ERROR - Command failed: docker run -d   --name docker-daemon   --privileged   --restart unless-stopped   -p 2376:2376   -v /var/lib/docker   docker:dind   dockerd     --host=tcp://0.0.0.0:2376     --tls=false
+2025-09-03 07:45:28,355 - ERROR - Error: docker: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+
+Run 'docker run --help' for more information
+
+2025-09-03 07:45:28,355 - ERROR - Docker-in-Docker setup failed: Command 'docker run -d   --name docker-daemon   --privileged   --restart unless-stopped   -p 2376:2376   -v /var/lib/docker   docker:dind   dockerd     --host=tcp://0.0.0.0:2376     --tls=false' returned non-zero exit status 125.
