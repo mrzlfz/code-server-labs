@@ -12,8 +12,11 @@ import requests
 import tarfile
 import shutil
 import time
+import logging
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
+from datetime import datetime
 
 class VSCodeServerInstaller:
     def __init__(self):
@@ -22,11 +25,15 @@ class VSCodeServerInstaller:
         self.install_dir = self.home_dir / ".local" / "lib" / "vscode-server"
         self.bin_dir = self.home_dir / ".local" / "bin"
         self.config_file = self.config_dir / "config.json"
+        self.log_file = self.config_dir / "auth_debug.log"
         
         # Buat direktori yang diperlukan
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.install_dir.mkdir(parents=True, exist_ok=True)
         self.bin_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Setup logging
+        self.setup_logging()
         
         # Load konfigurasi
         self.config = self.load_config()
@@ -61,6 +68,37 @@ class VSCodeServerInstaller:
                 print(f"❌ Error loading config: {e}")
                 return default_config
         return default_config
+    
+    def setup_logging(self):
+        """Setup logging system untuk debug authentication"""
+        # Setup logger
+        self.logger = logging.getLogger('vscode_auth')
+        self.logger.setLevel(logging.DEBUG)
+        
+        # Remove existing handlers
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
+        
+        # File handler
+        file_handler = logging.FileHandler(self.log_file, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        # Formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
+        
+        self.logger.info("=== VSCode Auth Debug Session Started ===")
         
     def save_config(self):
         """Simpan konfigurasi ke file"""
@@ -70,16 +108,37 @@ class VSCodeServerInstaller:
         except Exception as e:
             print(f"❌ Error saving config: {e}")
     
-    def run_command(self, command, shell=True, capture_output=False):
-        """Jalankan command dengan error handling"""
+    def run_command(self, command, shell=True, capture_output=False, log_output=True):
+        """Jalankan command dengan error handling dan logging"""
+        if hasattr(self, 'logger') and log_output:
+            self.logger.debug(f"Executing command: {command}")
+        
         try:
             if capture_output:
                 result = subprocess.run(command, shell=shell, capture_output=True, text=True)
-                return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
+                success = result.returncode == 0
+                stdout = result.stdout.strip()
+                stderr = result.stderr.strip()
+                
+                if hasattr(self, 'logger') and log_output:
+                    self.logger.debug(f"Command exit code: {result.returncode}")
+                    if stdout:
+                        self.logger.debug(f"STDOUT: {stdout}")
+                    if stderr:
+                        self.logger.debug(f"STDERR: {stderr}")
+                
+                return success, stdout, stderr
             else:
                 result = subprocess.run(command, shell=shell)
-                return result.returncode == 0, "", ""
+                success = result.returncode == 0
+                
+                if hasattr(self, 'logger') and log_output:
+                    self.logger.debug(f"Command exit code: {result.returncode}")
+                
+                return success, "", ""
         except Exception as e:
+            if hasattr(self, 'logger') and log_output:
+                self.logger.error(f"Exception running command: {e}")
             return False, "", str(e)
     
     def download_vscode_server(self):
@@ -144,38 +203,262 @@ class VSCodeServerInstaller:
             return False
     
     def setup_tunnel(self):
-        """Setup VSCode Server tunnel"""
+        """Setup VSCode Server tunnel dengan detailed logging"""
         print("\n🔧 Setting up VSCode Server Tunnel...")
+        self.logger.info("=== Starting Tunnel Setup Process ===")
         
         if not self.config.get("server_installed", False):
             print("❌ VSCode Server belum terinstall! Install terlebih dahulu.")
+            self.logger.error("VSCode Server not installed")
             return False
         
         tunnel_name = input("📝 Masukkan nama tunnel (contoh: my-dev-server): ").strip()
         if not tunnel_name:
             print("❌ Nama tunnel tidak boleh kosong!")
+            self.logger.error("Empty tunnel name provided")
             return False
         
+        self.logger.info(f"Tunnel name: {tunnel_name}")
         self.config["tunnel_name"] = tunnel_name
         self.save_config()
         
         code_path = self.bin_dir / "code"
+        self.logger.info(f"Code path: {code_path}")
+        
+        # Verify code binary exists and is executable
+        if not code_path.exists():
+            print(f"❌ Code binary tidak ditemukan di: {code_path}")
+            self.logger.error(f"Code binary not found at: {code_path}")
+            return False
+        
+        if not os.access(code_path, os.X_OK):
+            print(f"❌ Code binary tidak executable: {code_path}")
+            self.logger.error(f"Code binary not executable: {code_path}")
+            return False
         
         print(f"🔐 Melakukan login dan setup tunnel '{tunnel_name}'...")
         print("📋 Ikuti instruksi untuk login dengan akun Microsoft/GitHub Anda")
+        print(f"📝 Debug log akan disimpan di: {self.log_file}")
         
-        # Setup tunnel
+        self.logger.info("Starting authentication process...")
+        
+        # Setup tunnel dengan logging real-time dan automated input
         command = f'"{code_path}" tunnel --name "{tunnel_name}" --accept-server-license-terms'
-        success, stdout, stderr = self.run_command(command, capture_output=False)
         
-        if success:
-            print("✅ Tunnel berhasil dikonfigurasi!")
-            self.config["tunnel_configured"] = True
-            self.save_config()
-            return True
-        else:
-            print(f"❌ Error setting up tunnel: {stderr}")
+        try:
+            self.logger.info("Executing tunnel command...")
+            self.logger.debug(f"Full command: {command}")
+            
+            # Start process dengan stdin untuk automated input
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1
+            )
+            
+            self.logger.info(f"Process started with PID: {process.pid}")
+            
+            # Monitor output real-time dengan timeout dan automated input
+            output_lines = []
+            timeout_seconds = 300  # 5 menit timeout
+            start_time = time.time()
+            auth_method_sent = False
+            
+            print("🔍 Monitoring authentication process...")
+            print("📊 Real-time status akan ditampilkan...")
+            print("🤖 Auto-selecting GitHub Account when prompted...")
+            
+            while True:
+                # Check timeout
+                if time.time() - start_time > timeout_seconds:
+                    self.logger.warning(f"Process timeout after {timeout_seconds} seconds")
+                    print(f"⏰ Timeout setelah {timeout_seconds} detik!")
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                    return False
+                
+                # Read output
+                try:
+                    line = process.stdout.readline()
+                    if line:
+                        line = line.strip()
+                        output_lines.append(line)
+                        
+                        # Log output
+                        if line:
+                            self.logger.info(f"Process output: {line}")
+                            
+                            # Detect dan handle authentication method selection
+                            if "How would you like to log in" in line and not auth_method_sent:
+                                print(f"🔑 Detected login prompt, auto-selecting GitHub Account...")
+                                self.logger.info("Authentication method selection prompt detected - sending GitHub selection")
+                                # Send down arrow to select GitHub, then Enter
+                                process.stdin.write("\x1b[B\n")  # Down arrow + Enter
+                                process.stdin.flush()
+                                auth_method_sent = True
+                                continue
+                            
+                            # Filter out repetitive menu display lines
+                            if ("Microsoft Account" in line or "GitHub Account" in line or 
+                                "[2A" in line or "[2K" in line or "[1B" in line):
+                                if not auth_method_sent:
+                                    # Only show first few menu displays
+                                    if output_lines.count(line) < 3:
+                                        print(f"📋 {line}")
+                                continue
+                            
+                            # Show important status updates
+                            if "github.com/login/device" in line:
+                                print(f"🌐 {line}")
+                                self.logger.info("GitHub device login URL detected")
+                            elif "use code" in line.lower():
+                                print(f"🔢 {line}")
+                                self.logger.info("Device code detected")
+                            elif "Open this link" in line or "open the link" in line.lower():
+                                print(f"🔗 {line}")
+                                self.logger.info("Authentication link detected")
+                            elif "successfully" in line.lower():
+                                print(f"✅ {line}")
+                                self.logger.info("Success message detected")
+                            elif "error" in line.lower():
+                                print(f"❌ {line}")
+                                self.logger.error(f"Error detected in output: {line}")
+                            elif "waiting" in line.lower():
+                                print(f"⏳ {line}")
+                                self.logger.info("Waiting status detected")
+                            elif "To grant access" in line:
+                                print(f"🔐 {line}")
+                                self.logger.info("Access grant instruction detected")
+                                print("👉 Please complete authentication in your browser")
+                                print("⏳ Waiting for authentication completion...")
+                            elif "tunnel" in line.lower() and "ready" in line.lower():
+                                print(f"🚀 {line}")
+                                self.logger.info("Tunnel ready message detected")
+                            elif "tunnel" in line.lower() and ("started" in line.lower() or "running" in line.lower()):
+                                print(f"✅ {line}")
+                                self.logger.info("Tunnel started successfully")
+                            elif "authentication" in line.lower() and ("complete" in line.lower() or "successful" in line.lower()):
+                                print(f"✅ {line}")
+                                self.logger.info("Authentication completed")
+                            elif "logged in" in line.lower():
+                                print(f"✅ {line}")
+                                self.logger.info("Login confirmation detected")
+                            elif line and not any(x in line for x in ["*", "[?25l", "❯", "[2025-"]):
+                                # Show other meaningful output, filtering UI artifacts and timestamps
+                                print(f"📄 {line}")
+                            elif "[2025-" in line and ("info" in line.lower() or "error" in line.lower()):
+                                # Show timestamped info/error messages but clean format
+                                clean_line = line.split("] ")[-1] if "] " in line else line
+                                print(f"ℹ️  {clean_line}")
+                                self.logger.info(f"Timestamped message: {clean_line}")
+                    
+                    # Check if process is still running
+                    poll = process.poll()
+                    if poll is not None:
+                        self.logger.info(f"Process finished with exit code: {poll}")
+                        
+                        # Read any remaining output
+                        remaining_output = process.stdout.read()
+                        if remaining_output:
+                            for remaining_line in remaining_output.split('\n'):
+                                if remaining_line.strip():
+                                    output_lines.append(remaining_line.strip())
+                                    self.logger.info(f"Final output: {remaining_line.strip()}")
+                        
+                        if poll == 0:
+                            print("✅ Tunnel berhasil dikonfigurasi!")
+                            self.logger.info("Tunnel setup completed successfully")
+                            self.config["tunnel_configured"] = True
+                            self.save_config()
+                            return True
+                        else:
+                            print(f"❌ Tunnel setup gagal dengan exit code: {poll}")
+                            self.logger.error(f"Tunnel setup failed with exit code: {poll}")
+                            return False
+                
+                except Exception as e:
+                    self.logger.error(f"Error reading process output: {e}")
+                    break
+                
+                time.sleep(0.1)  # Small delay untuk mengurangi CPU usage
+                
+        except Exception as e:
+            self.logger.error(f"Exception during tunnel setup: {e}")
+            print(f"❌ Error setting up tunnel: {e}")
             return False
+        
+        finally:
+            # Cleanup jika process masih running
+            try:
+                if 'process' in locals() and process.poll() is None:
+                    self.logger.info("Terminating process...")
+                    process.terminate()
+                    process.wait(timeout=5)
+            except:
+                pass
+    
+    def analyze_auth_logs(self):
+        """Analyze authentication logs untuk troubleshooting"""
+        print("\n🔍 Analyzing Authentication Logs...")
+        
+        if not self.log_file.exists():
+            print("❌ Log file tidak ditemukan!")
+            return
+        
+        try:
+            with open(self.log_file, 'r', encoding='utf-8') as f:
+                logs = f.read()
+            
+            print(f"📂 Log file: {self.log_file}")
+            print(f"📊 Log size: {len(logs)} characters")
+            
+            # Analisis patterns
+            patterns_to_check = {
+                "Authentication started": "Starting authentication process",
+                "Device code shown": "use code",
+                "GitHub URL shown": "github.com/login/device",
+                "Waiting detected": "waiting",
+                "Success messages": "successfully",
+                "Error messages": "error",
+                "Process timeout": "timeout",
+                "Authentication method": "How would you like to log in"
+            }
+            
+            print("\n📋 Pattern Analysis:")
+            for description, pattern in patterns_to_check.items():
+                count = logs.lower().count(pattern.lower())
+                if count > 0:
+                    print(f"  ✅ {description}: {count} occurrences")
+                else:
+                    print(f"  ❌ {description}: Not found")
+            
+            # Tampilkan last 10 lines
+            lines = logs.strip().split('\n')
+            print(f"\n📄 Last 10 log entries:")
+            for line in lines[-10:]:
+                if line.strip():
+                    print(f"  {line}")
+            
+            # Recommendations
+            print(f"\n💡 Troubleshooting Recommendations:")
+            if "timeout" in logs.lower():
+                print("  🔄 Process timed out - try increasing timeout or check network")
+            if "error" in logs.lower():
+                print("  ❌ Errors detected - check error messages above")
+            if logs.lower().count("github.com/login/device") == 0:
+                print("  🌐 Device authentication URL not shown - check network connectivity")
+            if logs.lower().count("successfully") == 0:
+                print("  ⏳ Authentication not completed - process may be stuck")
+            
+        except Exception as e:
+            print(f"❌ Error reading log file: {e}")
     
     def start_tunnel(self):
         """Start VSCode Server tunnel"""
@@ -325,9 +608,10 @@ class VSCodeServerInstaller:
             print("7. 📋 List Installed Extensions")
             print("8. 📊 Show Status")
             print("9. ⚙️  Configure Extensions")
+            print("10. 🔍 Analyze Auth Logs")
             print("0. 🚪 Exit")
             
-            choice = input("\n🎯 Pilih menu (0-9): ").strip()
+            choice = input("\n🎯 Pilih menu (0-10): ").strip()
             
             if choice == "1":
                 self.download_vscode_server()
@@ -349,6 +633,8 @@ class VSCodeServerInstaller:
                 self.show_status()
             elif choice == "9":
                 self.configure_extensions()
+            elif choice == "10":
+                self.analyze_auth_logs()
             elif choice == "0":
                 print("👋 Terima kasih! Sampai jumpa!")
                 break
